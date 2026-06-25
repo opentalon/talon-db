@@ -106,7 +106,15 @@ func (s *Store) Delete(ctx context.Context, entityID, docID string) error {
 		return err
 	}
 	return s.db.Update(func(tx *bolt.Tx) error {
+		var oldDoc []byte
 		if b := tx.Bucket([]byte(docsBucketPrefix + entityID)); b != nil {
+			if prior := b.Get([]byte(docID)); prior != nil {
+				decoded, err := snappy.Decode(nil, prior)
+				if err != nil {
+					return fmt.Errorf("bboltstore: decode prior doc for %q: %w", docID, err)
+				}
+				oldDoc = decoded
+			}
 			if err := b.Delete([]byte(docID)); err != nil {
 				return err
 			}
@@ -115,6 +123,9 @@ func (s *Store) Delete(ctx context.Context, entityID, docID string) error {
 			if err := b.Delete([]byte(docID)); err != nil {
 				return err
 			}
+		}
+		if oldDoc != nil {
+			return indexDocOnDelete(tx, entityID, docID, oldDoc)
 		}
 		return nil
 	})
@@ -195,6 +206,16 @@ func (s *Store) putInTx(tx *bolt.Tx, entityID, docID string, doc []byte) error {
 		return err
 	}
 
+	// Capture the prior doc bytes (if any) for index delta computation.
+	var oldDoc []byte
+	if prior := docsBucket.Get([]byte(docID)); prior != nil {
+		decoded, err := snappy.Decode(nil, prior)
+		if err != nil {
+			return fmt.Errorf("bboltstore: decode prior doc for %q: %w", docID, err)
+		}
+		oldDoc = decoded
+	}
+
 	now := s.now().UnixNano()
 	var m docMeta
 	if existing := metaBucket.Get([]byte(docID)); existing != nil {
@@ -215,7 +236,10 @@ func (s *Store) putInTx(tx *bolt.Tx, entityID, docID string, doc []byte) error {
 	}
 
 	compressed := snappy.Encode(nil, doc)
-	return docsBucket.Put([]byte(docID), compressed)
+	if err := docsBucket.Put([]byte(docID), compressed); err != nil {
+		return err
+	}
+	return indexDocOnPut(tx, entityID, docID, oldDoc, doc)
 }
 
 func validateIDs(entityID, docID string) error {
