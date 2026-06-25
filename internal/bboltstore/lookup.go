@@ -30,6 +30,25 @@ func (s *Store) Lookup(ctx context.Context, entityID, term string) (talondb.DocI
 	return s.materializeDocIDSet(entityID, bm)
 }
 
+// LookupNumericRange implements talondb.IndexedStore.
+func (s *Store) LookupNumericRange(ctx context.Context, entityID, attr string, min, max float64, opts talondb.RangeOpts) (talondb.DocIDSet, error) {
+	if err := validateEntityID(entityID); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var bm *roaring.Bitmap
+	if err := s.db.View(func(tx *bolt.Tx) error {
+		var err error
+		bm, err = numIndexRange(tx, entityID, attr, min, max, opts.MinExclusive, opts.MaxExclusive)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return s.materializeDocIDSet(entityID, bm)
+}
+
 // LookupPrefix implements talondb.IndexedStore.
 func (s *Store) LookupPrefix(ctx context.Context, entityID, prefix string) (talondb.DocIDSet, error) {
 	if err := validateEntityID(entityID); err != nil {
@@ -114,4 +133,5 @@ func (s *stringDocIDSet) AsSortedSlice() []string {
 var _ interface {
 	Lookup(context.Context, string, string) (talondb.DocIDSet, error)
 	LookupPrefix(context.Context, string, string) (talondb.DocIDSet, error)
+	LookupNumericRange(context.Context, string, string, float64, float64, talondb.RangeOpts) (talondb.DocIDSet, error)
 } = (*Store)(nil)

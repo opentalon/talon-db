@@ -33,6 +33,9 @@ func indexDocOnPut(tx *bolt.Tx, entityID, docID string, oldDoc, newDoc []byte) e
 	if err := updateInvertedIndex(tx, entityID, internalID, oldTerms.Terms, newTerms.Terms); err != nil {
 		return fmt.Errorf("indexhook: inverted: %w", err)
 	}
+	if err := updateNumericIndex(tx, entityID, internalID, oldTerms.Numerics, newTerms.Numerics); err != nil {
+		return fmt.Errorf("indexhook: numeric: %w", err)
+	}
 
 	return nil
 }
@@ -54,6 +57,9 @@ func indexDocOnDelete(tx *bolt.Tx, entityID, docID string, oldDoc []byte) error 
 	}
 	if err := updateInvertedIndex(tx, entityID, internalID, terms.Terms, nil); err != nil {
 		return fmt.Errorf("indexhook: inverted: %w", err)
+	}
+	if err := updateNumericIndex(tx, entityID, internalID, terms.Numerics, nil); err != nil {
+		return fmt.Errorf("indexhook: numeric: %w", err)
 	}
 	return nil
 }
@@ -85,6 +91,23 @@ func updateInvertedIndex(tx *bolt.Tx, entityID string, internalID uint32, oldTer
 	}
 	for _, term := range added {
 		if err := invIndexAdd(tx, entityID, term, internalID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// updateNumericIndex removes all prior numerics and inserts every new
+// numeric. The index is keyed on (path, value, internalID) so this is
+// safe even when old and new overlap.
+func updateNumericIndex(tx *bolt.Tx, entityID string, internalID uint32, oldNums, newNums []index.NumericField) error {
+	for _, n := range oldNums {
+		if err := numIndexRemove(tx, entityID, n.Path, n.Value, internalID); err != nil {
+			return err
+		}
+	}
+	for _, n := range newNums {
+		if err := numIndexAdd(tx, entityID, n.Path, n.Value, internalID); err != nil {
 			return err
 		}
 	}
