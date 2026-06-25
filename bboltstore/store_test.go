@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	talondb "github.com/opentalon/talon-db"
-	"github.com/opentalon/talon-db/internal/bboltstore"
+	"github.com/opentalon/talon-db/bboltstore"
 	"github.com/opentalon/talon-db/talondbtest"
 )
 

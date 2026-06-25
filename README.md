@@ -37,8 +37,12 @@ Document store per [talon-language#26](https://github.com/opentalon/talon-langua
 ## Quick start
 
 ```go
-import "github.com/opentalon/talon-db"
-import "github.com/opentalon/talon-db/internal/bboltstore"
+import (
+    talondb "github.com/opentalon/talon-db"
+    "github.com/opentalon/talon-db/bboltstore"
+)
+
+var _ talondb.IndexedStore // the surface
 
 store, err := bboltstore.Open("talon.db")
 if err != nil { log.Fatal(err) }

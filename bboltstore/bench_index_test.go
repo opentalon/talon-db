@@ -6,7 +6,7 @@ package bboltstore_test
 // measures one lookup per iteration.
 //
 // Run with:
-//   go test -bench=BenchmarkIndex -benchmem -run=^$ ./internal/bboltstore
+//   go test -bench=BenchmarkIndex -benchmem -run=^$ ./bboltstore
 //
 // Not part of `go test ./...` — Go runs benchmarks only with -bench.
 
