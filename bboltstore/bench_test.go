@@ -22,7 +22,7 @@ package bboltstore_test
 //                        cost dominating bucket iteration.
 //
 // Run with:
-//   go test -bench=. -benchmem -run=^$ ./internal/bboltstore
+//   go test -bench=. -benchmem -run=^$ ./bboltstore
 //
 // To keep CI fast these benchmarks are NOT part of `go test ./...`
 // (Go runs benchmarks only with -bench). The CI workflow does not
@@ -34,7 +34,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/opentalon/talon-db/internal/bboltstore"
+	"github.com/opentalon/talon-db/bboltstore"
 )
 
 func benchOpen(b *testing.B) *bboltstore.Store {

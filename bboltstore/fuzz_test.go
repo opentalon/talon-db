@@ -16,8 +16,8 @@ package bboltstore_test
 // bbolt bucket-name handling or our colon-validation heuristic.
 //
 // Run with:
-//   go test -fuzz=FuzzPutGetRoundtrip -fuzztime=30s -run=^$ ./internal/bboltstore
-//   go test -fuzz=FuzzValidationRejection -fuzztime=30s -run=^$ ./internal/bboltstore
+//   go test -fuzz=FuzzPutGetRoundtrip -fuzztime=30s -run=^$ ./bboltstore
+//   go test -fuzz=FuzzValidationRejection -fuzztime=30s -run=^$ ./bboltstore
 //
 // Seed corpus is intentionally small; -fuzz expands it.
 
@@ -30,7 +30,7 @@ import (
 	"testing"
 
 	talondb "github.com/opentalon/talon-db"
-	"github.com/opentalon/talon-db/internal/bboltstore"
+	"github.com/opentalon/talon-db/bboltstore"
 )
 
 func fuzzStore(f *testing.F) *bboltstore.Store {

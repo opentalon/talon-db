@@ -33,7 +33,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/opentalon/talon-db/internal/bboltstore"
+	"github.com/opentalon/talon-db/bboltstore"
 )
 
 const (
