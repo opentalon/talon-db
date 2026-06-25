@@ -36,6 +36,9 @@ func indexDocOnPut(tx *bolt.Tx, entityID, docID string, oldDoc, newDoc []byte) e
 	if err := updateNumericIndex(tx, entityID, internalID, oldTerms.Numerics, newTerms.Numerics); err != nil {
 		return fmt.Errorf("indexhook: numeric: %w", err)
 	}
+	if err := updateTemporalIndex(tx, entityID, docID, oldDoc, newDoc); err != nil {
+		return fmt.Errorf("indexhook: temporal: %w", err)
+	}
 
 	return nil
 }
@@ -60,6 +63,9 @@ func indexDocOnDelete(tx *bolt.Tx, entityID, docID string, oldDoc []byte) error 
 	}
 	if err := updateNumericIndex(tx, entityID, internalID, terms.Numerics, nil); err != nil {
 		return fmt.Errorf("indexhook: numeric: %w", err)
+	}
+	if err := updateTemporalIndex(tx, entityID, docID, oldDoc, nil); err != nil {
+		return fmt.Errorf("indexhook: temporal: %w", err)
 	}
 	return nil
 }
@@ -92,6 +98,28 @@ func updateInvertedIndex(tx *bolt.Tx, entityID string, internalID uint32, oldTer
 	for _, term := range added {
 		if err := invIndexAdd(tx, entityID, term, internalID); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// updateTemporalIndex removes the prior temporal entry (if any) and
+// inserts the new one (if the new doc has the required fields). Both
+// sides operate on the *document*, not on the term extractor, because
+// the temporal index reads field names directly.
+func updateTemporalIndex(tx *bolt.Tx, entityID, docID string, oldDoc, newDoc []byte) error {
+	if len(oldDoc) > 0 {
+		if oldItem, _, _, ok := temporalFields(oldDoc); ok {
+			if err := temporalRemove(tx, entityID, oldItem, docID); err != nil {
+				return err
+			}
+		}
+	}
+	if len(newDoc) > 0 {
+		if newItem, recType, at, ok := temporalFields(newDoc); ok {
+			if err := temporalAdd(tx, entityID, newItem, docID, recType, at); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

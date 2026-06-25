@@ -3,6 +3,7 @@ package bboltstore
 import (
 	"context"
 	"fmt"
+	"time"
 
 	talondb "github.com/opentalon/talon-db"
 
@@ -28,6 +29,33 @@ func (s *Store) Lookup(ctx context.Context, entityID, term string) (talondb.DocI
 		return nil, err
 	}
 	return s.materializeDocIDSet(entityID, bm)
+}
+
+// WindowQuery implements talondb.IndexedStore. The `window` parameter
+// is currently advisory: every matching event is returned in time
+// order; callers apply windowing on the result. Kept in the signature
+// for forward compatibility with a future server-side window filter.
+func (s *Store) WindowQuery(ctx context.Context, entityID, itemID string, types []string, window time.Duration) ([]talondb.TemporalEvent, error) {
+	if err := validateEntityID(entityID); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	_ = window
+	var entries []temporalEntry
+	if err := s.db.View(func(tx *bolt.Tx) error {
+		var err error
+		entries, err = temporalRead(tx, entityID, itemID, types)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	out := make([]talondb.TemporalEvent, len(entries))
+	for i, e := range entries {
+		out[i] = talondb.TemporalEvent{DocID: e.DocID, Type: e.Type, At: time.Unix(0, e.At)}
+	}
+	return out, nil
 }
 
 // LookupNumericRange implements talondb.IndexedStore.
@@ -134,4 +162,5 @@ var _ interface {
 	Lookup(context.Context, string, string) (talondb.DocIDSet, error)
 	LookupPrefix(context.Context, string, string) (talondb.DocIDSet, error)
 	LookupNumericRange(context.Context, string, string, float64, float64, talondb.RangeOpts) (talondb.DocIDSet, error)
+	WindowQuery(context.Context, string, string, []string, time.Duration) ([]talondb.TemporalEvent, error)
 } = (*Store)(nil)
