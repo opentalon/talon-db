@@ -48,6 +48,12 @@ func benchOpen(b *testing.B) *bboltstore.Store {
 	return s
 }
 
+// fakeStore is an alias used by bench_index_test.go so the helper
+// signature stays in lockstep with newStoreForBench.
+type fakeStore = bboltstore.Store
+
+func newStoreForBench(b *testing.B) *fakeStore { return benchOpen(b) }
+
 func benchDoc() []byte {
 	doc := make([]byte, 256)
 	for i := range doc {

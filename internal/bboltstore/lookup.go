@@ -276,14 +276,4 @@ func (s *stringDocIDSet) AsSortedSlice() []string {
 	return s.ids
 }
 
-var _ interface {
-	Lookup(context.Context, string, string) (talondb.DocIDSet, error)
-	LookupPrefix(context.Context, string, string) (talondb.DocIDSet, error)
-	LookupNumericRange(context.Context, string, string, float64, float64, talondb.RangeOpts) (talondb.DocIDSet, error)
-	WindowQuery(context.Context, string, string, []string, time.Duration) ([]talondb.TemporalEvent, error)
-	GroupCount(context.Context, string, string, string, string) (talondb.GroupBucket, error)
-	Ancestors(context.Context, string, string) ([]string, error)
-	Descendants(context.Context, string, string) (talondb.DocIDSet, error)
-	Stats(context.Context, string, string) (talondb.RunningStats, error)
-	LastSeen(context.Context, string, string, string) (time.Time, bool, error)
-} = (*Store)(nil)
+var _ talondb.IndexedStore = (*Store)(nil)

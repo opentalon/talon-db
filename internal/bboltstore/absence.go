@@ -18,15 +18,9 @@ import (
 // timestamp so a Delete that touches the current-max doc can trigger
 // a recompute from the temporal index.
 
-const absencePrefix = "abs:"
-
-func absenceKey(entityID, itemID, recordType string) []byte {
-	return []byte(absencePrefix + entityID + ":" + itemID + ":" + recordType)
-}
-
 // Single bucket per entity holds every (itemID, recordType) pair as
-// individual keys; this keeps the dataset small enough that one bucket
-// won't blow up bbolt's page management.
+// individual keys; one bucket per entity keeps the page-management
+// footprint small.
 const absenceBucketPrefix = "absbucket:"
 
 func absenceBucketName(entityID string) []byte {
