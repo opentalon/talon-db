@@ -42,6 +42,9 @@ func indexDocOnPut(tx *bolt.Tx, entityID, docID string, oldDoc, newDoc []byte) e
 	if err := updateGroupByIndex(tx, entityID, internalID, oldDoc, newDoc); err != nil {
 		return fmt.Errorf("indexhook: groupby: %w", err)
 	}
+	if err := updateClosureIndex(tx, entityID, docID, internalID, oldDoc, newDoc); err != nil {
+		return fmt.Errorf("indexhook: closure: %w", err)
+	}
 
 	return nil
 }
@@ -72,6 +75,9 @@ func indexDocOnDelete(tx *bolt.Tx, entityID, docID string, oldDoc []byte) error 
 	}
 	if err := updateGroupByIndex(tx, entityID, internalID, oldDoc, nil); err != nil {
 		return fmt.Errorf("indexhook: groupby: %w", err)
+	}
+	if err := updateClosureIndex(tx, entityID, docID, internalID, oldDoc, nil); err != nil {
+		return fmt.Errorf("indexhook: closure: %w", err)
 	}
 	return nil
 }
@@ -104,6 +110,29 @@ func updateInvertedIndex(tx *bolt.Tx, entityID string, internalID uint32, oldTer
 	for _, term := range added {
 		if err := invIndexAdd(tx, entityID, term, internalID); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// updateClosureIndex removes the doc's prior closure-table entry (if
+// it had a parent) and adds the new one. Reparenting is supported by
+// virtue of remove-then-add: the doc's old descendant bitmap entries
+// are cleared from every old ancestor; new ones inserted via the new
+// parent chain.
+func updateClosureIndex(tx *bolt.Tx, entityID, docID string, internalID uint32, oldDoc, newDoc []byte) error {
+	if len(oldDoc) > 0 {
+		if _, ok := closureParent(oldDoc); ok {
+			if err := closureRemove(tx, entityID, docID, internalID); err != nil {
+				return err
+			}
+		}
+	}
+	if len(newDoc) > 0 {
+		if parent, ok := closureParent(newDoc); ok {
+			if err := closureAdd(tx, entityID, docID, parent, internalID); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

@@ -31,6 +31,44 @@ func (s *Store) Lookup(ctx context.Context, entityID, term string) (talondb.DocI
 	return s.materializeDocIDSet(entityID, bm)
 }
 
+// Ancestors implements talondb.IndexedStore.
+func (s *Store) Ancestors(ctx context.Context, entityID, categoryID string) ([]string, error) {
+	if err := validateEntityID(entityID); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var chain []string
+	if err := s.db.View(func(tx *bolt.Tx) error {
+		var err error
+		chain, err = closureReadAncestors(tx, entityID, categoryID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return chain, nil
+}
+
+// Descendants implements talondb.IndexedStore.
+func (s *Store) Descendants(ctx context.Context, entityID, rootID string) (talondb.DocIDSet, error) {
+	if err := validateEntityID(entityID); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var bm *roaring.Bitmap
+	if err := s.db.View(func(tx *bolt.Tx) error {
+		var err error
+		bm, err = closureReadDescendants(tx, entityID, rootID)
+		return err
+	}); err != nil {
+		return nil, err
+	}
+	return s.materializeDocIDSet(entityID, bm)
+}
+
 // GroupCount implements talondb.IndexedStore.
 func (s *Store) GroupCount(ctx context.Context, entityID, itemID, attr, value string) (talondb.GroupBucket, error) {
 	if err := validateEntityID(entityID); err != nil {
@@ -198,4 +236,6 @@ var _ interface {
 	LookupNumericRange(context.Context, string, string, float64, float64, talondb.RangeOpts) (talondb.DocIDSet, error)
 	WindowQuery(context.Context, string, string, []string, time.Duration) ([]talondb.TemporalEvent, error)
 	GroupCount(context.Context, string, string, string, string) (talondb.GroupBucket, error)
+	Ancestors(context.Context, string, string) ([]string, error)
+	Descendants(context.Context, string, string) (talondb.DocIDSet, error)
 } = (*Store)(nil)
