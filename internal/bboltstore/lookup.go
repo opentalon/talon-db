@@ -31,6 +31,31 @@ func (s *Store) Lookup(ctx context.Context, entityID, term string) (talondb.DocI
 	return s.materializeDocIDSet(entityID, bm)
 }
 
+// LastSeen implements talondb.IndexedStore.
+func (s *Store) LastSeen(ctx context.Context, entityID, itemID, recordType string) (time.Time, bool, error) {
+	if err := validateEntityID(entityID); err != nil {
+		return time.Time{}, false, err
+	}
+	if err := ctx.Err(); err != nil {
+		return time.Time{}, false, err
+	}
+	var (
+		at    int64
+		found bool
+	)
+	if err := s.db.View(func(tx *bolt.Tx) error {
+		var err error
+		at, found, err = absenceLookup(tx, entityID, itemID, recordType)
+		return err
+	}); err != nil {
+		return time.Time{}, false, err
+	}
+	if !found {
+		return time.Time{}, false, nil
+	}
+	return time.Unix(0, at), true, nil
+}
+
 // Stats implements talondb.IndexedStore.
 func (s *Store) Stats(ctx context.Context, entityID, attr string) (talondb.RunningStats, error) {
 	if err := validateEntityID(entityID); err != nil {
@@ -260,4 +285,5 @@ var _ interface {
 	Ancestors(context.Context, string, string) ([]string, error)
 	Descendants(context.Context, string, string) (talondb.DocIDSet, error)
 	Stats(context.Context, string, string) (talondb.RunningStats, error)
+	LastSeen(context.Context, string, string, string) (time.Time, bool, error)
 } = (*Store)(nil)
