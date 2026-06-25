@@ -31,6 +31,27 @@ func (s *Store) Lookup(ctx context.Context, entityID, term string) (talondb.DocI
 	return s.materializeDocIDSet(entityID, bm)
 }
 
+// Stats implements talondb.IndexedStore.
+func (s *Store) Stats(ctx context.Context, entityID, attr string) (talondb.RunningStats, error) {
+	if err := validateEntityID(entityID); err != nil {
+		return talondb.RunningStats{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return talondb.RunningStats{}, err
+	}
+	v, err := statsRead(s.db, entityID, attr)
+	if err != nil {
+		return talondb.RunningStats{}, err
+	}
+	return talondb.RunningStats{
+		Count: v.Count,
+		Mean:  v.Mean,
+		M2:    v.M2,
+		Min:   v.Min,
+		Max:   v.Max,
+	}, nil
+}
+
 // Ancestors implements talondb.IndexedStore.
 func (s *Store) Ancestors(ctx context.Context, entityID, categoryID string) ([]string, error) {
 	if err := validateEntityID(entityID); err != nil {
@@ -238,4 +259,5 @@ var _ interface {
 	GroupCount(context.Context, string, string, string, string) (talondb.GroupBucket, error)
 	Ancestors(context.Context, string, string) ([]string, error)
 	Descendants(context.Context, string, string) (talondb.DocIDSet, error)
+	Stats(context.Context, string, string) (talondb.RunningStats, error)
 } = (*Store)(nil)

@@ -45,6 +45,9 @@ func indexDocOnPut(tx *bolt.Tx, entityID, docID string, oldDoc, newDoc []byte) e
 	if err := updateClosureIndex(tx, entityID, docID, internalID, oldDoc, newDoc); err != nil {
 		return fmt.Errorf("indexhook: closure: %w", err)
 	}
+	if err := updateStatsIndex(tx, entityID, oldTerms.Numerics, newTerms.Numerics); err != nil {
+		return fmt.Errorf("indexhook: stats: %w", err)
+	}
 
 	return nil
 }
@@ -79,6 +82,9 @@ func indexDocOnDelete(tx *bolt.Tx, entityID, docID string, oldDoc []byte) error 
 	if err := updateClosureIndex(tx, entityID, docID, internalID, oldDoc, nil); err != nil {
 		return fmt.Errorf("indexhook: closure: %w", err)
 	}
+	if err := updateStatsIndex(tx, entityID, terms.Numerics, nil); err != nil {
+		return fmt.Errorf("indexhook: stats: %w", err)
+	}
 	return nil
 }
 
@@ -109,6 +115,42 @@ func updateInvertedIndex(tx *bolt.Tx, entityID string, internalID uint32, oldTer
 	}
 	for _, term := range added {
 		if err := invIndexAdd(tx, entityID, term, internalID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// updateStatsIndex maintains the Welford aggregate per attr. A
+// brand-new doc with no prior numeric for an attr can use the cheap
+// incremental path; any reuse-of-attr (oldNums has it AND newNums has
+// it) or any retraction marks the aggregate stale for recomputation.
+func updateStatsIndex(tx *bolt.Tx, entityID string, oldNums, newNums []index.NumericField) error {
+	oldByPath := make(map[string]float64, len(oldNums))
+	for _, n := range oldNums {
+		oldByPath[n.Path] = n.Value
+	}
+	newByPath := make(map[string]float64, len(newNums))
+	for _, n := range newNums {
+		newByPath[n.Path] = n.Value
+	}
+	for path := range oldByPath {
+		if _, has := newByPath[path]; has {
+			if err := statsMarkStale(tx, entityID, path); err != nil {
+				return err
+			}
+		} else {
+			// retraction
+			if err := statsMarkStale(tx, entityID, path); err != nil {
+				return err
+			}
+		}
+	}
+	for path, value := range newByPath {
+		if _, was := oldByPath[path]; was {
+			continue // already handled above
+		}
+		if err := statsAddFresh(tx, entityID, path, value); err != nil {
 			return err
 		}
 	}
