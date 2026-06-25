@@ -39,6 +39,9 @@ func indexDocOnPut(tx *bolt.Tx, entityID, docID string, oldDoc, newDoc []byte) e
 	if err := updateTemporalIndex(tx, entityID, docID, oldDoc, newDoc); err != nil {
 		return fmt.Errorf("indexhook: temporal: %w", err)
 	}
+	if err := updateGroupByIndex(tx, entityID, internalID, oldDoc, newDoc); err != nil {
+		return fmt.Errorf("indexhook: groupby: %w", err)
+	}
 
 	return nil
 }
@@ -66,6 +69,9 @@ func indexDocOnDelete(tx *bolt.Tx, entityID, docID string, oldDoc []byte) error 
 	}
 	if err := updateTemporalIndex(tx, entityID, docID, oldDoc, nil); err != nil {
 		return fmt.Errorf("indexhook: temporal: %w", err)
+	}
+	if err := updateGroupByIndex(tx, entityID, internalID, oldDoc, nil); err != nil {
+		return fmt.Errorf("indexhook: groupby: %w", err)
 	}
 	return nil
 }
@@ -98,6 +104,36 @@ func updateInvertedIndex(tx *bolt.Tx, entityID string, internalID uint32, oldTer
 	for _, term := range added {
 		if err := invIndexAdd(tx, entityID, term, internalID); err != nil {
 			return err
+		}
+	}
+	return nil
+}
+
+// updateGroupByIndex removes the doc from every prior group it
+// contributed to and adds it to every new group. The temporal `at`
+// stored in each group comes from the temporal-fields parse so it can
+// be omitted (zero) if the doc has no time field.
+func updateGroupByIndex(tx *bolt.Tx, entityID string, internalID uint32, oldDoc, newDoc []byte) error {
+	if len(oldDoc) > 0 {
+		if oldItem, oldScalars, ok := groupByFields(oldDoc); ok {
+			for attr, value := range oldScalars {
+				if err := groupByRemove(tx, entityID, oldItem, attr, value, internalID); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	if len(newDoc) > 0 {
+		if newItem, newScalars, ok := groupByFields(newDoc); ok {
+			_, _, at, hasAt := temporalFields(newDoc)
+			if !hasAt {
+				at = 0
+			}
+			for attr, value := range newScalars {
+				if err := groupByAdd(tx, entityID, newItem, attr, value, internalID, at); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	return nil

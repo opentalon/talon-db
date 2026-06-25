@@ -31,6 +31,40 @@ func (s *Store) Lookup(ctx context.Context, entityID, term string) (talondb.DocI
 	return s.materializeDocIDSet(entityID, bm)
 }
 
+// GroupCount implements talondb.IndexedStore.
+func (s *Store) GroupCount(ctx context.Context, entityID, itemID, attr, value string) (talondb.GroupBucket, error) {
+	if err := validateEntityID(entityID); err != nil {
+		return talondb.GroupBucket{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return talondb.GroupBucket{}, err
+	}
+	var (
+		v  groupByValue
+		bm *roaring.Bitmap
+	)
+	if err := s.db.View(func(tx *bolt.Tx) error {
+		var err error
+		v, bm, err = groupByRead(tx, entityID, itemID, attr, value)
+		return err
+	}); err != nil {
+		return talondb.GroupBucket{}, err
+	}
+	if v.Count == 0 {
+		return talondb.GroupBucket{}, nil
+	}
+	docIDs, err := s.materializeDocIDSet(entityID, bm)
+	if err != nil {
+		return talondb.GroupBucket{}, err
+	}
+	return talondb.GroupBucket{
+		Count:  int(v.Count),
+		First:  time.Unix(0, v.FirstSeen),
+		Last:   time.Unix(0, v.LastSeen),
+		DocIDs: docIDs,
+	}, nil
+}
+
 // WindowQuery implements talondb.IndexedStore. The `window` parameter
 // is currently advisory: every matching event is returned in time
 // order; callers apply windowing on the result. Kept in the signature
@@ -163,4 +197,5 @@ var _ interface {
 	LookupPrefix(context.Context, string, string) (talondb.DocIDSet, error)
 	LookupNumericRange(context.Context, string, string, float64, float64, talondb.RangeOpts) (talondb.DocIDSet, error)
 	WindowQuery(context.Context, string, string, []string, time.Duration) ([]talondb.TemporalEvent, error)
+	GroupCount(context.Context, string, string, string, string) (talondb.GroupBucket, error)
 } = (*Store)(nil)
