@@ -1523,6 +1523,8 @@ type QueryRequest struct {
 	EntityId      string                 `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
 	Find          []string               `protobuf:"bytes,2,rep,name=find,proto3" json:"find,omitempty"` // variable names to project, e.g. ["?e", "?km"]
 	Where         []*Clause              `protobuf:"bytes,3,rep,name=where,proto3" json:"where,omitempty"`
+	Aggregates    []*Aggregate           `protobuf:"bytes,4,rep,name=aggregates,proto3" json:"aggregates,omitempty"`          // when non-empty, response is aggregate rows
+	GroupBy       []string               `protobuf:"bytes,5,rep,name=group_by,json=groupBy,proto3" json:"group_by,omitempty"` // variable names to bucket by
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1578,6 +1580,83 @@ func (x *QueryRequest) GetWhere() []*Clause {
 	return nil
 }
 
+func (x *QueryRequest) GetAggregates() []*Aggregate {
+	if x != nil {
+		return x.Aggregates
+	}
+	return nil
+}
+
+func (x *QueryRequest) GetGroupBy() []string {
+	if x != nil {
+		return x.GroupBy
+	}
+	return nil
+}
+
+// Aggregate is one roll-up: count / sum / avg / min / max over the
+// values bound to `over` across the match set. `as` names the column
+// in the response row layout [group_by columns..., aggregate columns...].
+type Aggregate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Fn            string                 `protobuf:"bytes,1,opt,name=fn,proto3" json:"fn,omitempty"`     // "count" | "sum" | "avg" | "min" | "max"
+	Over          *Term                  `protobuf:"bytes,2,opt,name=over,proto3" json:"over,omitempty"` // variable whose binding gets aggregated
+	As            string                 `protobuf:"bytes,3,opt,name=as,proto3" json:"as,omitempty"`     // result column name (informational)
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Aggregate) Reset() {
+	*x = Aggregate{}
+	mi := &file_proto_talondb_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Aggregate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Aggregate) ProtoMessage() {}
+
+func (x *Aggregate) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_talondb_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Aggregate.ProtoReflect.Descriptor instead.
+func (*Aggregate) Descriptor() ([]byte, []int) {
+	return file_proto_talondb_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *Aggregate) GetFn() string {
+	if x != nil {
+		return x.Fn
+	}
+	return ""
+}
+
+func (x *Aggregate) GetOver() *Term {
+	if x != nil {
+		return x.Over
+	}
+	return nil
+}
+
+func (x *Aggregate) GetAs() string {
+	if x != nil {
+		return x.As
+	}
+	return ""
+}
+
 type QueryResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Rows          []*QueryRow            `protobuf:"bytes,1,rep,name=rows,proto3" json:"rows,omitempty"`
@@ -1587,7 +1666,7 @@ type QueryResponse struct {
 
 func (x *QueryResponse) Reset() {
 	*x = QueryResponse{}
-	mi := &file_proto_talondb_proto_msgTypes[26]
+	mi := &file_proto_talondb_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1599,7 +1678,7 @@ func (x *QueryResponse) String() string {
 func (*QueryResponse) ProtoMessage() {}
 
 func (x *QueryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[26]
+	mi := &file_proto_talondb_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1612,7 +1691,7 @@ func (x *QueryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryResponse.ProtoReflect.Descriptor instead.
 func (*QueryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{26}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *QueryResponse) GetRows() []*QueryRow {
@@ -1633,7 +1712,7 @@ type QueryRow struct {
 
 func (x *QueryRow) Reset() {
 	*x = QueryRow{}
-	mi := &file_proto_talondb_proto_msgTypes[27]
+	mi := &file_proto_talondb_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1645,7 +1724,7 @@ func (x *QueryRow) String() string {
 func (*QueryRow) ProtoMessage() {}
 
 func (x *QueryRow) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[27]
+	mi := &file_proto_talondb_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1658,7 +1737,7 @@ func (x *QueryRow) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryRow.ProtoReflect.Descriptor instead.
 func (*QueryRow) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{27}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *QueryRow) GetValues() []*structpb.Value {
@@ -1684,7 +1763,7 @@ type Clause struct {
 
 func (x *Clause) Reset() {
 	*x = Clause{}
-	mi := &file_proto_talondb_proto_msgTypes[28]
+	mi := &file_proto_talondb_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1696,7 +1775,7 @@ func (x *Clause) String() string {
 func (*Clause) ProtoMessage() {}
 
 func (x *Clause) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[28]
+	mi := &file_proto_talondb_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1709,7 +1788,7 @@ func (x *Clause) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Clause.ProtoReflect.Descriptor instead.
 func (*Clause) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{28}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *Clause) GetClause() isClause_Clause {
@@ -1809,7 +1888,7 @@ type Pattern struct {
 
 func (x *Pattern) Reset() {
 	*x = Pattern{}
-	mi := &file_proto_talondb_proto_msgTypes[29]
+	mi := &file_proto_talondb_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1821,7 +1900,7 @@ func (x *Pattern) String() string {
 func (*Pattern) ProtoMessage() {}
 
 func (x *Pattern) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[29]
+	mi := &file_proto_talondb_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1834,7 +1913,7 @@ func (x *Pattern) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pattern.ProtoReflect.Descriptor instead.
 func (*Pattern) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{29}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *Pattern) GetEntity() *Term {
@@ -1872,7 +1951,7 @@ type Predicate struct {
 
 func (x *Predicate) Reset() {
 	*x = Predicate{}
-	mi := &file_proto_talondb_proto_msgTypes[30]
+	mi := &file_proto_talondb_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1884,7 +1963,7 @@ func (x *Predicate) String() string {
 func (*Predicate) ProtoMessage() {}
 
 func (x *Predicate) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[30]
+	mi := &file_proto_talondb_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1897,7 +1976,7 @@ func (x *Predicate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Predicate.ProtoReflect.Descriptor instead.
 func (*Predicate) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{30}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *Predicate) GetOp() string {
@@ -1930,7 +2009,7 @@ type Or struct {
 
 func (x *Or) Reset() {
 	*x = Or{}
-	mi := &file_proto_talondb_proto_msgTypes[31]
+	mi := &file_proto_talondb_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1942,7 +2021,7 @@ func (x *Or) String() string {
 func (*Or) ProtoMessage() {}
 
 func (x *Or) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[31]
+	mi := &file_proto_talondb_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1955,7 +2034,7 @@ func (x *Or) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Or.ProtoReflect.Descriptor instead.
 func (*Or) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{31}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *Or) GetBranches() []*ClauseList {
@@ -1974,7 +2053,7 @@ type ClauseList struct {
 
 func (x *ClauseList) Reset() {
 	*x = ClauseList{}
-	mi := &file_proto_talondb_proto_msgTypes[32]
+	mi := &file_proto_talondb_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1986,7 +2065,7 @@ func (x *ClauseList) String() string {
 func (*ClauseList) ProtoMessage() {}
 
 func (x *ClauseList) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[32]
+	mi := &file_proto_talondb_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1999,7 +2078,7 @@ func (x *ClauseList) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClauseList.ProtoReflect.Descriptor instead.
 func (*ClauseList) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{32}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *ClauseList) GetClauses() []*Clause {
@@ -2018,7 +2097,7 @@ type Not struct {
 
 func (x *Not) Reset() {
 	*x = Not{}
-	mi := &file_proto_talondb_proto_msgTypes[33]
+	mi := &file_proto_talondb_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2030,7 +2109,7 @@ func (x *Not) String() string {
 func (*Not) ProtoMessage() {}
 
 func (x *Not) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[33]
+	mi := &file_proto_talondb_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2043,7 +2122,7 @@ func (x *Not) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Not.ProtoReflect.Descriptor instead.
 func (*Not) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{33}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *Not) GetBody() []*Clause {
@@ -2064,7 +2143,7 @@ type FullText struct {
 
 func (x *FullText) Reset() {
 	*x = FullText{}
-	mi := &file_proto_talondb_proto_msgTypes[34]
+	mi := &file_proto_talondb_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2076,7 +2155,7 @@ func (x *FullText) String() string {
 func (*FullText) ProtoMessage() {}
 
 func (x *FullText) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[34]
+	mi := &file_proto_talondb_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2089,7 +2168,7 @@ func (x *FullText) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use FullText.ProtoReflect.Descriptor instead.
 func (*FullText) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{34}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *FullText) GetEntity() *Term {
@@ -2125,7 +2204,7 @@ type Term struct {
 
 func (x *Term) Reset() {
 	*x = Term{}
-	mi := &file_proto_talondb_proto_msgTypes[35]
+	mi := &file_proto_talondb_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2137,7 +2216,7 @@ func (x *Term) String() string {
 func (*Term) ProtoMessage() {}
 
 func (x *Term) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[35]
+	mi := &file_proto_talondb_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2150,7 +2229,7 @@ func (x *Term) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Term.ProtoReflect.Descriptor instead.
 func (*Term) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{35}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *Term) GetVar() string {
@@ -2179,7 +2258,7 @@ type SequenceJoinRequest struct {
 
 func (x *SequenceJoinRequest) Reset() {
 	*x = SequenceJoinRequest{}
-	mi := &file_proto_talondb_proto_msgTypes[36]
+	mi := &file_proto_talondb_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2191,7 +2270,7 @@ func (x *SequenceJoinRequest) String() string {
 func (*SequenceJoinRequest) ProtoMessage() {}
 
 func (x *SequenceJoinRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[36]
+	mi := &file_proto_talondb_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2204,7 +2283,7 @@ func (x *SequenceJoinRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SequenceJoinRequest.ProtoReflect.Descriptor instead.
 func (*SequenceJoinRequest) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{36}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *SequenceJoinRequest) GetEntityId() string {
@@ -2244,7 +2323,7 @@ type SequenceJoinResponse struct {
 
 func (x *SequenceJoinResponse) Reset() {
 	*x = SequenceJoinResponse{}
-	mi := &file_proto_talondb_proto_msgTypes[37]
+	mi := &file_proto_talondb_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2256,7 +2335,7 @@ func (x *SequenceJoinResponse) String() string {
 func (*SequenceJoinResponse) ProtoMessage() {}
 
 func (x *SequenceJoinResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[37]
+	mi := &file_proto_talondb_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2269,7 +2348,7 @@ func (x *SequenceJoinResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SequenceJoinResponse.ProtoReflect.Descriptor instead.
 func (*SequenceJoinResponse) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{37}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *SequenceJoinResponse) GetMatches() []*SequenceMatch {
@@ -2289,7 +2368,7 @@ type SequenceMatch struct {
 
 func (x *SequenceMatch) Reset() {
 	*x = SequenceMatch{}
-	mi := &file_proto_talondb_proto_msgTypes[38]
+	mi := &file_proto_talondb_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2301,7 +2380,7 @@ func (x *SequenceMatch) String() string {
 func (*SequenceMatch) ProtoMessage() {}
 
 func (x *SequenceMatch) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[38]
+	mi := &file_proto_talondb_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2314,7 +2393,7 @@ func (x *SequenceMatch) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SequenceMatch.ProtoReflect.Descriptor instead.
 func (*SequenceMatch) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{38}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *SequenceMatch) GetItemId() string {
@@ -2344,7 +2423,7 @@ type ClusterQueryRequest struct {
 
 func (x *ClusterQueryRequest) Reset() {
 	*x = ClusterQueryRequest{}
-	mi := &file_proto_talondb_proto_msgTypes[39]
+	mi := &file_proto_talondb_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2356,7 +2435,7 @@ func (x *ClusterQueryRequest) String() string {
 func (*ClusterQueryRequest) ProtoMessage() {}
 
 func (x *ClusterQueryRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[39]
+	mi := &file_proto_talondb_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2369,7 +2448,7 @@ func (x *ClusterQueryRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterQueryRequest.ProtoReflect.Descriptor instead.
 func (*ClusterQueryRequest) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{39}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *ClusterQueryRequest) GetEntityId() string {
@@ -2416,7 +2495,7 @@ type ClusterQueryResponse struct {
 
 func (x *ClusterQueryResponse) Reset() {
 	*x = ClusterQueryResponse{}
-	mi := &file_proto_talondb_proto_msgTypes[40]
+	mi := &file_proto_talondb_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2428,7 +2507,7 @@ func (x *ClusterQueryResponse) String() string {
 func (*ClusterQueryResponse) ProtoMessage() {}
 
 func (x *ClusterQueryResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[40]
+	mi := &file_proto_talondb_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2441,7 +2520,7 @@ func (x *ClusterQueryResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterQueryResponse.ProtoReflect.Descriptor instead.
 func (*ClusterQueryResponse) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{40}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *ClusterQueryResponse) GetClusters() []*TemporalCluster {
@@ -2462,7 +2541,7 @@ type TemporalCluster struct {
 
 func (x *TemporalCluster) Reset() {
 	*x = TemporalCluster{}
-	mi := &file_proto_talondb_proto_msgTypes[41]
+	mi := &file_proto_talondb_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2474,7 +2553,7 @@ func (x *TemporalCluster) String() string {
 func (*TemporalCluster) ProtoMessage() {}
 
 func (x *TemporalCluster) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_talondb_proto_msgTypes[41]
+	mi := &file_proto_talondb_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2487,7 +2566,7 @@ func (x *TemporalCluster) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TemporalCluster.ProtoReflect.Descriptor instead.
 func (*TemporalCluster) Descriptor() ([]byte, []int) {
-	return file_proto_talondb_proto_rawDescGZIP(), []int{41}
+	return file_proto_talondb_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *TemporalCluster) GetFirstUnixNanos() int64 {
@@ -2612,11 +2691,19 @@ const file_proto_talondb_proto_rawDesc = "" +
 	"\x06doc_id\x18\x03 \x01(\tR\x05docId\x12\x17\n" +
 	"\aold_doc\x18\x04 \x01(\fR\x06oldDoc\x12\x17\n" +
 	"\anew_doc\x18\x05 \x01(\fR\x06newDoc\x12\"\n" +
-	"\rat_unix_nanos\x18\x06 \x01(\x03R\vatUnixNanos\"s\n" +
+	"\rat_unix_nanos\x18\x06 \x01(\x03R\vatUnixNanos\"\xcf\x01\n" +
 	"\fQueryRequest\x12\x1b\n" +
 	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\x12\n" +
 	"\x04find\x18\x02 \x03(\tR\x04find\x122\n" +
-	"\x05where\x18\x03 \x03(\v2\x1c.opentalon.talondb.v1.ClauseR\x05where\"C\n" +
+	"\x05where\x18\x03 \x03(\v2\x1c.opentalon.talondb.v1.ClauseR\x05where\x12?\n" +
+	"\n" +
+	"aggregates\x18\x04 \x03(\v2\x1f.opentalon.talondb.v1.AggregateR\n" +
+	"aggregates\x12\x19\n" +
+	"\bgroup_by\x18\x05 \x03(\tR\agroupBy\"[\n" +
+	"\tAggregate\x12\x0e\n" +
+	"\x02fn\x18\x01 \x01(\tR\x02fn\x12.\n" +
+	"\x04over\x18\x02 \x01(\v2\x1a.opentalon.talondb.v1.TermR\x04over\x12\x0e\n" +
+	"\x02as\x18\x03 \x01(\tR\x02as\"C\n" +
 	"\rQueryResponse\x122\n" +
 	"\x04rows\x18\x01 \x03(\v2\x1e.opentalon.talondb.v1.QueryRowR\x04rows\":\n" +
 	"\bQueryRow\x12.\n" +
@@ -2711,7 +2798,7 @@ func file_proto_talondb_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_talondb_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_proto_talondb_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
+var file_proto_talondb_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
 var file_proto_talondb_proto_goTypes = []any{
 	(MutationEventKind)(0),       // 0: opentalon.talondb.v1.MutationEventKind
 	(*DocIDList)(nil),            // 1: opentalon.talondb.v1.DocIDList
@@ -2740,91 +2827,94 @@ var file_proto_talondb_proto_goTypes = []any{
 	(*SubscribeRequest)(nil),     // 24: opentalon.talondb.v1.SubscribeRequest
 	(*MutationEvent)(nil),        // 25: opentalon.talondb.v1.MutationEvent
 	(*QueryRequest)(nil),         // 26: opentalon.talondb.v1.QueryRequest
-	(*QueryResponse)(nil),        // 27: opentalon.talondb.v1.QueryResponse
-	(*QueryRow)(nil),             // 28: opentalon.talondb.v1.QueryRow
-	(*Clause)(nil),               // 29: opentalon.talondb.v1.Clause
-	(*Pattern)(nil),              // 30: opentalon.talondb.v1.Pattern
-	(*Predicate)(nil),            // 31: opentalon.talondb.v1.Predicate
-	(*Or)(nil),                   // 32: opentalon.talondb.v1.Or
-	(*ClauseList)(nil),           // 33: opentalon.talondb.v1.ClauseList
-	(*Not)(nil),                  // 34: opentalon.talondb.v1.Not
-	(*FullText)(nil),             // 35: opentalon.talondb.v1.FullText
-	(*Term)(nil),                 // 36: opentalon.talondb.v1.Term
-	(*SequenceJoinRequest)(nil),  // 37: opentalon.talondb.v1.SequenceJoinRequest
-	(*SequenceJoinResponse)(nil), // 38: opentalon.talondb.v1.SequenceJoinResponse
-	(*SequenceMatch)(nil),        // 39: opentalon.talondb.v1.SequenceMatch
-	(*ClusterQueryRequest)(nil),  // 40: opentalon.talondb.v1.ClusterQueryRequest
-	(*ClusterQueryResponse)(nil), // 41: opentalon.talondb.v1.ClusterQueryResponse
-	(*TemporalCluster)(nil),      // 42: opentalon.talondb.v1.TemporalCluster
-	(*structpb.Value)(nil),       // 43: google.protobuf.Value
-	(*emptypb.Empty)(nil),        // 44: google.protobuf.Empty
+	(*Aggregate)(nil),            // 27: opentalon.talondb.v1.Aggregate
+	(*QueryResponse)(nil),        // 28: opentalon.talondb.v1.QueryResponse
+	(*QueryRow)(nil),             // 29: opentalon.talondb.v1.QueryRow
+	(*Clause)(nil),               // 30: opentalon.talondb.v1.Clause
+	(*Pattern)(nil),              // 31: opentalon.talondb.v1.Pattern
+	(*Predicate)(nil),            // 32: opentalon.talondb.v1.Predicate
+	(*Or)(nil),                   // 33: opentalon.talondb.v1.Or
+	(*ClauseList)(nil),           // 34: opentalon.talondb.v1.ClauseList
+	(*Not)(nil),                  // 35: opentalon.talondb.v1.Not
+	(*FullText)(nil),             // 36: opentalon.talondb.v1.FullText
+	(*Term)(nil),                 // 37: opentalon.talondb.v1.Term
+	(*SequenceJoinRequest)(nil),  // 38: opentalon.talondb.v1.SequenceJoinRequest
+	(*SequenceJoinResponse)(nil), // 39: opentalon.talondb.v1.SequenceJoinResponse
+	(*SequenceMatch)(nil),        // 40: opentalon.talondb.v1.SequenceMatch
+	(*ClusterQueryRequest)(nil),  // 41: opentalon.talondb.v1.ClusterQueryRequest
+	(*ClusterQueryResponse)(nil), // 42: opentalon.talondb.v1.ClusterQueryResponse
+	(*TemporalCluster)(nil),      // 43: opentalon.talondb.v1.TemporalCluster
+	(*structpb.Value)(nil),       // 44: google.protobuf.Value
+	(*emptypb.Empty)(nil),        // 45: google.protobuf.Empty
 }
 var file_proto_talondb_proto_depIdxs = []int32{
 	7,  // 0: opentalon.talondb.v1.BatchPutRequest.entries:type_name -> opentalon.talondb.v1.BatchPutEntry
 	13, // 1: opentalon.talondb.v1.WindowResponse.events:type_name -> opentalon.talondb.v1.TemporalEvent
 	0,  // 2: opentalon.talondb.v1.MutationEvent.kind:type_name -> opentalon.talondb.v1.MutationEventKind
-	29, // 3: opentalon.talondb.v1.QueryRequest.where:type_name -> opentalon.talondb.v1.Clause
-	28, // 4: opentalon.talondb.v1.QueryResponse.rows:type_name -> opentalon.talondb.v1.QueryRow
-	43, // 5: opentalon.talondb.v1.QueryRow.values:type_name -> google.protobuf.Value
-	30, // 6: opentalon.talondb.v1.Clause.pattern:type_name -> opentalon.talondb.v1.Pattern
-	31, // 7: opentalon.talondb.v1.Clause.predicate:type_name -> opentalon.talondb.v1.Predicate
-	32, // 8: opentalon.talondb.v1.Clause.or:type_name -> opentalon.talondb.v1.Or
-	34, // 9: opentalon.talondb.v1.Clause.not:type_name -> opentalon.talondb.v1.Not
-	35, // 10: opentalon.talondb.v1.Clause.fulltext:type_name -> opentalon.talondb.v1.FullText
-	36, // 11: opentalon.talondb.v1.Pattern.entity:type_name -> opentalon.talondb.v1.Term
-	36, // 12: opentalon.talondb.v1.Pattern.value:type_name -> opentalon.talondb.v1.Term
-	36, // 13: opentalon.talondb.v1.Predicate.left:type_name -> opentalon.talondb.v1.Term
-	36, // 14: opentalon.talondb.v1.Predicate.right:type_name -> opentalon.talondb.v1.Term
-	33, // 15: opentalon.talondb.v1.Or.branches:type_name -> opentalon.talondb.v1.ClauseList
-	29, // 16: opentalon.talondb.v1.ClauseList.clauses:type_name -> opentalon.talondb.v1.Clause
-	29, // 17: opentalon.talondb.v1.Not.body:type_name -> opentalon.talondb.v1.Clause
-	36, // 18: opentalon.talondb.v1.FullText.entity:type_name -> opentalon.talondb.v1.Term
-	43, // 19: opentalon.talondb.v1.Term.literal:type_name -> google.protobuf.Value
-	39, // 20: opentalon.talondb.v1.SequenceJoinResponse.matches:type_name -> opentalon.talondb.v1.SequenceMatch
-	13, // 21: opentalon.talondb.v1.SequenceMatch.events:type_name -> opentalon.talondb.v1.TemporalEvent
-	42, // 22: opentalon.talondb.v1.ClusterQueryResponse.clusters:type_name -> opentalon.talondb.v1.TemporalCluster
-	13, // 23: opentalon.talondb.v1.TemporalCluster.events:type_name -> opentalon.talondb.v1.TemporalEvent
-	3,  // 24: opentalon.talondb.v1.TalonDBService.Put:input_type -> opentalon.talondb.v1.PutRequest
-	4,  // 25: opentalon.talondb.v1.TalonDBService.Get:input_type -> opentalon.talondb.v1.GetRequest
-	6,  // 26: opentalon.talondb.v1.TalonDBService.Delete:input_type -> opentalon.talondb.v1.DeleteRequest
-	8,  // 27: opentalon.talondb.v1.TalonDBService.BatchPut:input_type -> opentalon.talondb.v1.BatchPutRequest
-	9,  // 28: opentalon.talondb.v1.TalonDBService.Lookup:input_type -> opentalon.talondb.v1.LookupRequest
-	10, // 29: opentalon.talondb.v1.TalonDBService.LookupPrefix:input_type -> opentalon.talondb.v1.LookupPrefixRequest
-	11, // 30: opentalon.talondb.v1.TalonDBService.LookupNumericRange:input_type -> opentalon.talondb.v1.NumericRangeRequest
-	12, // 31: opentalon.talondb.v1.TalonDBService.WindowQuery:input_type -> opentalon.talondb.v1.WindowRequest
-	15, // 32: opentalon.talondb.v1.TalonDBService.GroupCount:input_type -> opentalon.talondb.v1.GroupRequest
-	17, // 33: opentalon.talondb.v1.TalonDBService.Stats:input_type -> opentalon.talondb.v1.StatsRequest
-	19, // 34: opentalon.talondb.v1.TalonDBService.LastSeen:input_type -> opentalon.talondb.v1.LastSeenRequest
-	21, // 35: opentalon.talondb.v1.TalonDBService.Ancestors:input_type -> opentalon.talondb.v1.AncestorsRequest
-	22, // 36: opentalon.talondb.v1.TalonDBService.Descendants:input_type -> opentalon.talondb.v1.DescendantsRequest
-	26, // 37: opentalon.talondb.v1.TalonDBService.Query:input_type -> opentalon.talondb.v1.QueryRequest
-	37, // 38: opentalon.talondb.v1.TalonDBService.SequenceJoin:input_type -> opentalon.talondb.v1.SequenceJoinRequest
-	40, // 39: opentalon.talondb.v1.TalonDBService.ClusterQuery:input_type -> opentalon.talondb.v1.ClusterQueryRequest
-	24, // 40: opentalon.talondb.v1.TalonDBService.Subscribe:input_type -> opentalon.talondb.v1.SubscribeRequest
-	44, // 41: opentalon.talondb.v1.TalonDBService.Health:input_type -> google.protobuf.Empty
-	44, // 42: opentalon.talondb.v1.TalonDBService.Put:output_type -> google.protobuf.Empty
-	5,  // 43: opentalon.talondb.v1.TalonDBService.Get:output_type -> opentalon.talondb.v1.GetResponse
-	44, // 44: opentalon.talondb.v1.TalonDBService.Delete:output_type -> google.protobuf.Empty
-	44, // 45: opentalon.talondb.v1.TalonDBService.BatchPut:output_type -> google.protobuf.Empty
-	1,  // 46: opentalon.talondb.v1.TalonDBService.Lookup:output_type -> opentalon.talondb.v1.DocIDList
-	1,  // 47: opentalon.talondb.v1.TalonDBService.LookupPrefix:output_type -> opentalon.talondb.v1.DocIDList
-	1,  // 48: opentalon.talondb.v1.TalonDBService.LookupNumericRange:output_type -> opentalon.talondb.v1.DocIDList
-	14, // 49: opentalon.talondb.v1.TalonDBService.WindowQuery:output_type -> opentalon.talondb.v1.WindowResponse
-	16, // 50: opentalon.talondb.v1.TalonDBService.GroupCount:output_type -> opentalon.talondb.v1.GroupResponse
-	18, // 51: opentalon.talondb.v1.TalonDBService.Stats:output_type -> opentalon.talondb.v1.StatsResponse
-	20, // 52: opentalon.talondb.v1.TalonDBService.LastSeen:output_type -> opentalon.talondb.v1.LastSeenResponse
-	2,  // 53: opentalon.talondb.v1.TalonDBService.Ancestors:output_type -> opentalon.talondb.v1.StringList
-	1,  // 54: opentalon.talondb.v1.TalonDBService.Descendants:output_type -> opentalon.talondb.v1.DocIDList
-	27, // 55: opentalon.talondb.v1.TalonDBService.Query:output_type -> opentalon.talondb.v1.QueryResponse
-	38, // 56: opentalon.talondb.v1.TalonDBService.SequenceJoin:output_type -> opentalon.talondb.v1.SequenceJoinResponse
-	41, // 57: opentalon.talondb.v1.TalonDBService.ClusterQuery:output_type -> opentalon.talondb.v1.ClusterQueryResponse
-	25, // 58: opentalon.talondb.v1.TalonDBService.Subscribe:output_type -> opentalon.talondb.v1.MutationEvent
-	23, // 59: opentalon.talondb.v1.TalonDBService.Health:output_type -> opentalon.talondb.v1.HealthResponse
-	42, // [42:60] is the sub-list for method output_type
-	24, // [24:42] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	30, // 3: opentalon.talondb.v1.QueryRequest.where:type_name -> opentalon.talondb.v1.Clause
+	27, // 4: opentalon.talondb.v1.QueryRequest.aggregates:type_name -> opentalon.talondb.v1.Aggregate
+	37, // 5: opentalon.talondb.v1.Aggregate.over:type_name -> opentalon.talondb.v1.Term
+	29, // 6: opentalon.talondb.v1.QueryResponse.rows:type_name -> opentalon.talondb.v1.QueryRow
+	44, // 7: opentalon.talondb.v1.QueryRow.values:type_name -> google.protobuf.Value
+	31, // 8: opentalon.talondb.v1.Clause.pattern:type_name -> opentalon.talondb.v1.Pattern
+	32, // 9: opentalon.talondb.v1.Clause.predicate:type_name -> opentalon.talondb.v1.Predicate
+	33, // 10: opentalon.talondb.v1.Clause.or:type_name -> opentalon.talondb.v1.Or
+	35, // 11: opentalon.talondb.v1.Clause.not:type_name -> opentalon.talondb.v1.Not
+	36, // 12: opentalon.talondb.v1.Clause.fulltext:type_name -> opentalon.talondb.v1.FullText
+	37, // 13: opentalon.talondb.v1.Pattern.entity:type_name -> opentalon.talondb.v1.Term
+	37, // 14: opentalon.talondb.v1.Pattern.value:type_name -> opentalon.talondb.v1.Term
+	37, // 15: opentalon.talondb.v1.Predicate.left:type_name -> opentalon.talondb.v1.Term
+	37, // 16: opentalon.talondb.v1.Predicate.right:type_name -> opentalon.talondb.v1.Term
+	34, // 17: opentalon.talondb.v1.Or.branches:type_name -> opentalon.talondb.v1.ClauseList
+	30, // 18: opentalon.talondb.v1.ClauseList.clauses:type_name -> opentalon.talondb.v1.Clause
+	30, // 19: opentalon.talondb.v1.Not.body:type_name -> opentalon.talondb.v1.Clause
+	37, // 20: opentalon.talondb.v1.FullText.entity:type_name -> opentalon.talondb.v1.Term
+	44, // 21: opentalon.talondb.v1.Term.literal:type_name -> google.protobuf.Value
+	40, // 22: opentalon.talondb.v1.SequenceJoinResponse.matches:type_name -> opentalon.talondb.v1.SequenceMatch
+	13, // 23: opentalon.talondb.v1.SequenceMatch.events:type_name -> opentalon.talondb.v1.TemporalEvent
+	43, // 24: opentalon.talondb.v1.ClusterQueryResponse.clusters:type_name -> opentalon.talondb.v1.TemporalCluster
+	13, // 25: opentalon.talondb.v1.TemporalCluster.events:type_name -> opentalon.talondb.v1.TemporalEvent
+	3,  // 26: opentalon.talondb.v1.TalonDBService.Put:input_type -> opentalon.talondb.v1.PutRequest
+	4,  // 27: opentalon.talondb.v1.TalonDBService.Get:input_type -> opentalon.talondb.v1.GetRequest
+	6,  // 28: opentalon.talondb.v1.TalonDBService.Delete:input_type -> opentalon.talondb.v1.DeleteRequest
+	8,  // 29: opentalon.talondb.v1.TalonDBService.BatchPut:input_type -> opentalon.talondb.v1.BatchPutRequest
+	9,  // 30: opentalon.talondb.v1.TalonDBService.Lookup:input_type -> opentalon.talondb.v1.LookupRequest
+	10, // 31: opentalon.talondb.v1.TalonDBService.LookupPrefix:input_type -> opentalon.talondb.v1.LookupPrefixRequest
+	11, // 32: opentalon.talondb.v1.TalonDBService.LookupNumericRange:input_type -> opentalon.talondb.v1.NumericRangeRequest
+	12, // 33: opentalon.talondb.v1.TalonDBService.WindowQuery:input_type -> opentalon.talondb.v1.WindowRequest
+	15, // 34: opentalon.talondb.v1.TalonDBService.GroupCount:input_type -> opentalon.talondb.v1.GroupRequest
+	17, // 35: opentalon.talondb.v1.TalonDBService.Stats:input_type -> opentalon.talondb.v1.StatsRequest
+	19, // 36: opentalon.talondb.v1.TalonDBService.LastSeen:input_type -> opentalon.talondb.v1.LastSeenRequest
+	21, // 37: opentalon.talondb.v1.TalonDBService.Ancestors:input_type -> opentalon.talondb.v1.AncestorsRequest
+	22, // 38: opentalon.talondb.v1.TalonDBService.Descendants:input_type -> opentalon.talondb.v1.DescendantsRequest
+	26, // 39: opentalon.talondb.v1.TalonDBService.Query:input_type -> opentalon.talondb.v1.QueryRequest
+	38, // 40: opentalon.talondb.v1.TalonDBService.SequenceJoin:input_type -> opentalon.talondb.v1.SequenceJoinRequest
+	41, // 41: opentalon.talondb.v1.TalonDBService.ClusterQuery:input_type -> opentalon.talondb.v1.ClusterQueryRequest
+	24, // 42: opentalon.talondb.v1.TalonDBService.Subscribe:input_type -> opentalon.talondb.v1.SubscribeRequest
+	45, // 43: opentalon.talondb.v1.TalonDBService.Health:input_type -> google.protobuf.Empty
+	45, // 44: opentalon.talondb.v1.TalonDBService.Put:output_type -> google.protobuf.Empty
+	5,  // 45: opentalon.talondb.v1.TalonDBService.Get:output_type -> opentalon.talondb.v1.GetResponse
+	45, // 46: opentalon.talondb.v1.TalonDBService.Delete:output_type -> google.protobuf.Empty
+	45, // 47: opentalon.talondb.v1.TalonDBService.BatchPut:output_type -> google.protobuf.Empty
+	1,  // 48: opentalon.talondb.v1.TalonDBService.Lookup:output_type -> opentalon.talondb.v1.DocIDList
+	1,  // 49: opentalon.talondb.v1.TalonDBService.LookupPrefix:output_type -> opentalon.talondb.v1.DocIDList
+	1,  // 50: opentalon.talondb.v1.TalonDBService.LookupNumericRange:output_type -> opentalon.talondb.v1.DocIDList
+	14, // 51: opentalon.talondb.v1.TalonDBService.WindowQuery:output_type -> opentalon.talondb.v1.WindowResponse
+	16, // 52: opentalon.talondb.v1.TalonDBService.GroupCount:output_type -> opentalon.talondb.v1.GroupResponse
+	18, // 53: opentalon.talondb.v1.TalonDBService.Stats:output_type -> opentalon.talondb.v1.StatsResponse
+	20, // 54: opentalon.talondb.v1.TalonDBService.LastSeen:output_type -> opentalon.talondb.v1.LastSeenResponse
+	2,  // 55: opentalon.talondb.v1.TalonDBService.Ancestors:output_type -> opentalon.talondb.v1.StringList
+	1,  // 56: opentalon.talondb.v1.TalonDBService.Descendants:output_type -> opentalon.talondb.v1.DocIDList
+	28, // 57: opentalon.talondb.v1.TalonDBService.Query:output_type -> opentalon.talondb.v1.QueryResponse
+	39, // 58: opentalon.talondb.v1.TalonDBService.SequenceJoin:output_type -> opentalon.talondb.v1.SequenceJoinResponse
+	42, // 59: opentalon.talondb.v1.TalonDBService.ClusterQuery:output_type -> opentalon.talondb.v1.ClusterQueryResponse
+	25, // 60: opentalon.talondb.v1.TalonDBService.Subscribe:output_type -> opentalon.talondb.v1.MutationEvent
+	23, // 61: opentalon.talondb.v1.TalonDBService.Health:output_type -> opentalon.talondb.v1.HealthResponse
+	44, // [44:62] is the sub-list for method output_type
+	26, // [26:44] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_proto_talondb_proto_init() }
@@ -2832,7 +2922,7 @@ func file_proto_talondb_proto_init() {
 	if File_proto_talondb_proto != nil {
 		return
 	}
-	file_proto_talondb_proto_msgTypes[28].OneofWrappers = []any{
+	file_proto_talondb_proto_msgTypes[29].OneofWrappers = []any{
 		(*Clause_Pattern)(nil),
 		(*Clause_Predicate)(nil),
 		(*Clause_Or)(nil),
@@ -2845,7 +2935,7 @@ func file_proto_talondb_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_talondb_proto_rawDesc), len(file_proto_talondb_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   42,
+			NumMessages:   43,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

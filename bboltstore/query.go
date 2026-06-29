@@ -77,9 +77,22 @@ type QueryFullText struct {
 
 // QueryRequest is the parsed input to Store.Query.
 type QueryRequest struct {
-	EntityID string
-	Find     []string
-	Where    []QueryClause
+	EntityID   string
+	Find       []string
+	Where      []QueryClause
+	Aggregates []QueryAggregate
+	GroupBy    []string
+}
+
+// QueryAggregate is one roll-up over the candidate set.
+//
+// Fn is one of "count" / "sum" / "avg" / "min" / "max". Over names
+// the variable whose binding gets aggregated (Over.Var). As is the
+// informational result column name.
+type QueryAggregate struct {
+	Fn   string
+	Over QueryTerm
+	As   string
 }
 
 // QueryRow is one result row: one value per Find column, in column
@@ -115,6 +128,12 @@ func (s *Store) Query(ctx context.Context, req QueryRequest) ([]QueryRow, error)
 		return nil, err
 	}
 	if len(candidates) == 0 {
+		if len(req.Aggregates) > 0 {
+			// Datalog semantics: empty match set with no GroupBy still
+			// yields one row of zeros. Mirrors MemoryStore / the
+			// talon-language adapter.
+			return runQueryAggregates(nil, req.GroupBy, req.Aggregates), nil
+		}
 		return nil, nil
 	}
 
@@ -147,13 +166,42 @@ func (s *Store) Query(ctx context.Context, req QueryRequest) ([]QueryRow, error)
 		if !matchAllQuery(req.Where, doc, bindings) {
 			continue
 		}
+		if len(req.Aggregates) > 0 {
+			// Defer projection — runQueryAggregates needs raw bindings.
+			rows = append(rows, bindingsToRow(bindings))
+			continue
+		}
 		row := make(QueryRow, len(req.Find))
 		for i, name := range req.Find {
 			row[i] = bindings[name]
 		}
 		rows = append(rows, row)
 	}
+	if len(req.Aggregates) > 0 {
+		matches := rowsToBindings(rows)
+		return runQueryAggregates(matches, req.GroupBy, req.Aggregates), nil
+	}
 	return rows, nil
+}
+
+// bindingsToRow stuffs a binding map into a QueryRow so it can ride
+// through the row slice; rowsToBindings unpacks it. Cheaper than
+// allocating a second slice during candidate iteration when the
+// query is non-aggregating.
+func bindingsToRow(b map[string]any) QueryRow {
+	return QueryRow{b}
+}
+
+func rowsToBindings(rows []QueryRow) []map[string]any {
+	out := make([]map[string]any, 0, len(rows))
+	for _, r := range rows {
+		if len(r) == 1 {
+			if m, ok := r[0].(map[string]any); ok {
+				out = append(out, m)
+			}
+		}
+	}
+	return out
 }
 
 // collectQueryAnchors returns every top-level Pattern with a literal
