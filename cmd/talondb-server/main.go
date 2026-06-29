@@ -71,7 +71,7 @@ func main() {
 	}
 	defer func() { _ = store.Close() }()
 
-	svc := grpcserver.New(store, version)
+	svc := grpcserver.New(store, store.Events(), version)
 	grpcSrv := grpc.NewServer()
 	talondbpb.RegisterTalonDBServiceServer(grpcSrv, svc)
 
