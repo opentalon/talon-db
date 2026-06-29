@@ -12,7 +12,7 @@ import (
 
 	talondb "github.com/opentalon/talon-db"
 	"github.com/opentalon/talon-db/bboltstore"
-	"github.com/opentalon/talon-db/internal/grpcserver"
+	"github.com/opentalon/talon-db/grpcserver"
 	"github.com/opentalon/talon-db/proto/talondbpb"
 
 	"google.golang.org/grpc"
