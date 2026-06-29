@@ -33,6 +33,13 @@ service TalonDBService {
   rpc Ancestors(AncestorsRequest) returns (StringList);
   rpc Descendants(DescendantsRequest) returns (DocIDList);
 
+  // ClusterQuery walks a (entity, itemID)'s temporal index and returns
+  // non-overlapping clusters of events whose total span is at most
+  // window_nanos and whose size is at least min_size. Replaces the
+  // client-side "fetch all events + count" pattern for "N+ records
+  // within W" detect blocks.
+  rpc ClusterQuery(ClusterQueryRequest) returns (ClusterQueryResponse);
+
   // Subscribe streams MutationEvents for every committed Put / Delete.
   // The server-side stream stays open until the client cancels or the
   // server shuts down. SubscribeRequest filters narrow the stream
@@ -204,4 +211,20 @@ message MutationEvent {
   bytes             old_doc       = 4;  // empty on Assert; present on Change / Retract
   bytes             new_doc       = 5;  // empty on Retract; present on Assert / Change
   int64             at_unix_nanos = 6;
+}
+
+message ClusterQueryRequest {
+  string entity_id      = 1;
+  string item_id        = 2;
+  repeated string types = 3;  // empty = all types
+  int64  window_nanos   = 4;  // 0 = no upper bound (one cluster per run)
+  int32  min_size       = 5;  // ≥1 (1 yields every event as a singleton)
+}
+message ClusterQueryResponse {
+  repeated TemporalCluster clusters = 1;
+}
+message TemporalCluster {
+  int64  first_unix_nanos       = 1;
+  int64  last_unix_nanos        = 2;
+  repeated TemporalEvent events = 3;
 }
