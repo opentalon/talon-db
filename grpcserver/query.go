@@ -31,10 +31,16 @@ func (s *Server) Query(ctx context.Context, req *talondbpb.QueryRequest) (*talon
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
+	aggs, err := decodeAggregates(req.GetAggregates())
+	if err != nil {
+		return nil, status.Error(codes.InvalidArgument, err.Error())
+	}
 	rows, err := bbolt.Query(ctx, bboltstore.QueryRequest{
-		EntityID: req.GetEntityId(),
-		Find:     req.GetFind(),
-		Where:    clauses,
+		EntityID:   req.GetEntityId(),
+		Find:       req.GetFind(),
+		Where:      clauses,
+		Aggregates: aggs,
+		GroupBy:    req.GetGroupBy(),
 	})
 	if err != nil {
 		return nil, mapError(err)
@@ -107,6 +113,26 @@ func decodeQueryClause(c *talondbpb.Clause) (bboltstore.QueryClause, error) {
 		}}, nil
 	}
 	return bboltstore.QueryClause{}, fmt.Errorf("unknown clause variant")
+}
+
+func decodeAggregates(in []*talondbpb.Aggregate) ([]bboltstore.QueryAggregate, error) {
+	if len(in) == 0 {
+		return nil, nil
+	}
+	out := make([]bboltstore.QueryAggregate, 0, len(in))
+	for _, a := range in {
+		switch a.GetFn() {
+		case "count", "sum", "total", "avg", "min", "max":
+		default:
+			return nil, fmt.Errorf("unknown aggregate function %q", a.GetFn())
+		}
+		out = append(out, bboltstore.QueryAggregate{
+			Fn:   a.GetFn(),
+			Over: decodeTerm(a.GetOver()),
+			As:   a.GetAs(),
+		})
+	}
+	return out, nil
 }
 
 func decodeTerm(t *talondbpb.Term) bboltstore.QueryTerm {
