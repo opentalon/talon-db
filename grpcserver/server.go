@@ -122,6 +122,37 @@ func (s *Server) WindowQuery(ctx context.Context, req *talondbpb.WindowRequest) 
 	return out, nil
 }
 
+func (s *Server) ClusterQuery(ctx context.Context, req *talondbpb.ClusterQueryRequest) (*talondbpb.ClusterQueryResponse, error) {
+	clusters, err := s.store.ClusterQuery(
+		ctx,
+		req.GetEntityId(),
+		req.GetItemId(),
+		req.GetTypes(),
+		time.Duration(req.GetWindowNanos()),
+		int(req.GetMinSize()),
+	)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := &talondbpb.ClusterQueryResponse{Clusters: make([]*talondbpb.TemporalCluster, 0, len(clusters))}
+	for _, c := range clusters {
+		events := make([]*talondbpb.TemporalEvent, 0, len(c.Events))
+		for _, e := range c.Events {
+			events = append(events, &talondbpb.TemporalEvent{
+				DocId:       e.DocID,
+				Type:        e.Type,
+				AtUnixNanos: e.At.UnixNano(),
+			})
+		}
+		out.Clusters = append(out.Clusters, &talondbpb.TemporalCluster{
+			FirstUnixNanos: c.First.UnixNano(),
+			LastUnixNanos:  c.Last.UnixNano(),
+			Events:         events,
+		})
+	}
+	return out, nil
+}
+
 func (s *Server) GroupCount(ctx context.Context, req *talondbpb.GroupRequest) (*talondbpb.GroupResponse, error) {
 	g, err := s.store.GroupCount(ctx, req.GetEntityId(), req.GetItemId(), req.GetAttr(), req.GetValue())
 	if err != nil {

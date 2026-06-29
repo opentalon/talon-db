@@ -49,6 +49,15 @@ type TemporalEvent struct {
 	At    time.Time
 }
 
+// TemporalCluster is one contiguous group of events returned by
+// ClusterQuery. First / Last bracket the span; Events lists the
+// events that fell into the cluster, sorted by At ascending.
+type TemporalCluster struct {
+	First  time.Time
+	Last   time.Time
+	Events []TemporalEvent
+}
+
 // GroupBucket is the value type for GroupCount: how many docs share
 // a particular (itemID, attr, value) tuple and when the first / last
 // were seen.
@@ -94,6 +103,13 @@ type IndexedStore interface {
 	// and whose At falls within `window` of at least one anchor event,
 	// sorted ascending by time. An empty `types` slice means "any type".
 	WindowQuery(ctx context.Context, entityID, itemID string, types []string, window time.Duration) ([]TemporalEvent, error)
+
+	// ClusterQuery returns non-overlapping clusters of events for
+	// (entityID, itemID) whose total span is at most `window` and whose
+	// size is at least `minSize`. Server-side equivalent of the
+	// client-side "fetch all events + count" pattern for "N+ records
+	// within W" detect blocks. `window` of 0 means no upper bound.
+	ClusterQuery(ctx context.Context, entityID, itemID string, types []string, window time.Duration, minSize int) ([]TemporalCluster, error)
 
 	// GroupCount returns the pre-aggregated counter for one
 	// (itemID, attr, value) tuple. Returns a zero-valued GroupBucket

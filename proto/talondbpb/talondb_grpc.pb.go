@@ -33,6 +33,7 @@ const (
 	TalonDBService_LastSeen_FullMethodName           = "/opentalon.talondb.v1.TalonDBService/LastSeen"
 	TalonDBService_Ancestors_FullMethodName          = "/opentalon.talondb.v1.TalonDBService/Ancestors"
 	TalonDBService_Descendants_FullMethodName        = "/opentalon.talondb.v1.TalonDBService/Descendants"
+	TalonDBService_ClusterQuery_FullMethodName       = "/opentalon.talondb.v1.TalonDBService/ClusterQuery"
 	TalonDBService_Subscribe_FullMethodName          = "/opentalon.talondb.v1.TalonDBService/Subscribe"
 	TalonDBService_Health_FullMethodName             = "/opentalon.talondb.v1.TalonDBService/Health"
 )
@@ -66,6 +67,12 @@ type TalonDBServiceClient interface {
 	LastSeen(ctx context.Context, in *LastSeenRequest, opts ...grpc.CallOption) (*LastSeenResponse, error)
 	Ancestors(ctx context.Context, in *AncestorsRequest, opts ...grpc.CallOption) (*StringList, error)
 	Descendants(ctx context.Context, in *DescendantsRequest, opts ...grpc.CallOption) (*DocIDList, error)
+	// ClusterQuery walks a (entity, itemID)'s temporal index and returns
+	// non-overlapping clusters of events whose total span is at most
+	// window_nanos and whose size is at least min_size. Replaces the
+	// client-side "fetch all events + count" pattern for "N+ records
+	// within W" detect blocks.
+	ClusterQuery(ctx context.Context, in *ClusterQueryRequest, opts ...grpc.CallOption) (*ClusterQueryResponse, error)
 	// Subscribe streams MutationEvents for every committed Put / Delete.
 	// The server-side stream stays open until the client cancels or the
 	// server shuts down. SubscribeRequest filters narrow the stream
@@ -214,6 +221,16 @@ func (c *talonDBServiceClient) Descendants(ctx context.Context, in *DescendantsR
 	return out, nil
 }
 
+func (c *talonDBServiceClient) ClusterQuery(ctx context.Context, in *ClusterQueryRequest, opts ...grpc.CallOption) (*ClusterQueryResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClusterQueryResponse)
+	err := c.cc.Invoke(ctx, TalonDBService_ClusterQuery_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *talonDBServiceClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[MutationEvent], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &TalonDBService_ServiceDesc.Streams[0], TalonDBService_Subscribe_FullMethodName, cOpts...)
@@ -272,6 +289,12 @@ type TalonDBServiceServer interface {
 	LastSeen(context.Context, *LastSeenRequest) (*LastSeenResponse, error)
 	Ancestors(context.Context, *AncestorsRequest) (*StringList, error)
 	Descendants(context.Context, *DescendantsRequest) (*DocIDList, error)
+	// ClusterQuery walks a (entity, itemID)'s temporal index and returns
+	// non-overlapping clusters of events whose total span is at most
+	// window_nanos and whose size is at least min_size. Replaces the
+	// client-side "fetch all events + count" pattern for "N+ records
+	// within W" detect blocks.
+	ClusterQuery(context.Context, *ClusterQueryRequest) (*ClusterQueryResponse, error)
 	// Subscribe streams MutationEvents for every committed Put / Delete.
 	// The server-side stream stays open until the client cancels or the
 	// server shuts down. SubscribeRequest filters narrow the stream
@@ -328,6 +351,9 @@ func (UnimplementedTalonDBServiceServer) Ancestors(context.Context, *AncestorsRe
 }
 func (UnimplementedTalonDBServiceServer) Descendants(context.Context, *DescendantsRequest) (*DocIDList, error) {
 	return nil, status.Error(codes.Unimplemented, "method Descendants not implemented")
+}
+func (UnimplementedTalonDBServiceServer) ClusterQuery(context.Context, *ClusterQueryRequest) (*ClusterQueryResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClusterQuery not implemented")
 }
 func (UnimplementedTalonDBServiceServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[MutationEvent]) error {
 	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
@@ -590,6 +616,24 @@ func _TalonDBService_Descendants_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TalonDBService_ClusterQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClusterQueryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TalonDBServiceServer).ClusterQuery(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TalonDBService_ClusterQuery_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TalonDBServiceServer).ClusterQuery(ctx, req.(*ClusterQueryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _TalonDBService_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SubscribeRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -677,6 +721,10 @@ var TalonDBService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Descendants",
 			Handler:    _TalonDBService_Descendants_Handler,
+		},
+		{
+			MethodName: "ClusterQuery",
+			Handler:    _TalonDBService_ClusterQuery_Handler,
 		},
 		{
 			MethodName: "Health",
