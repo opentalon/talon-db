@@ -33,6 +33,7 @@ const (
 	TalonDBService_LastSeen_FullMethodName           = "/opentalon.talondb.v1.TalonDBService/LastSeen"
 	TalonDBService_Ancestors_FullMethodName          = "/opentalon.talondb.v1.TalonDBService/Ancestors"
 	TalonDBService_Descendants_FullMethodName        = "/opentalon.talondb.v1.TalonDBService/Descendants"
+	TalonDBService_Subscribe_FullMethodName          = "/opentalon.talondb.v1.TalonDBService/Subscribe"
 	TalonDBService_Health_FullMethodName             = "/opentalon.talondb.v1.TalonDBService/Health"
 )
 
@@ -65,6 +66,12 @@ type TalonDBServiceClient interface {
 	LastSeen(ctx context.Context, in *LastSeenRequest, opts ...grpc.CallOption) (*LastSeenResponse, error)
 	Ancestors(ctx context.Context, in *AncestorsRequest, opts ...grpc.CallOption) (*StringList, error)
 	Descendants(ctx context.Context, in *DescendantsRequest, opts ...grpc.CallOption) (*DocIDList, error)
+	// Subscribe streams MutationEvents for every committed Put / Delete.
+	// The server-side stream stays open until the client cancels or the
+	// server shuts down. SubscribeRequest filters narrow the stream
+	// server-side; an empty entity_id matches every tenant, an empty
+	// doc_id_prefix matches every doc.
+	Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[MutationEvent], error)
 	// Operational
 	Health(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*HealthResponse, error)
 }
@@ -207,6 +214,25 @@ func (c *talonDBServiceClient) Descendants(ctx context.Context, in *DescendantsR
 	return out, nil
 }
 
+func (c *talonDBServiceClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[MutationEvent], error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	stream, err := c.cc.NewStream(ctx, &TalonDBService_ServiceDesc.Streams[0], TalonDBService_Subscribe_FullMethodName, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &grpc.GenericClientStream[SubscribeRequest, MutationEvent]{ClientStream: stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type TalonDBService_SubscribeClient = grpc.ServerStreamingClient[MutationEvent]
+
 func (c *talonDBServiceClient) Health(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*HealthResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(HealthResponse)
@@ -246,6 +272,12 @@ type TalonDBServiceServer interface {
 	LastSeen(context.Context, *LastSeenRequest) (*LastSeenResponse, error)
 	Ancestors(context.Context, *AncestorsRequest) (*StringList, error)
 	Descendants(context.Context, *DescendantsRequest) (*DocIDList, error)
+	// Subscribe streams MutationEvents for every committed Put / Delete.
+	// The server-side stream stays open until the client cancels or the
+	// server shuts down. SubscribeRequest filters narrow the stream
+	// server-side; an empty entity_id matches every tenant, an empty
+	// doc_id_prefix matches every doc.
+	Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[MutationEvent]) error
 	// Operational
 	Health(context.Context, *emptypb.Empty) (*HealthResponse, error)
 	mustEmbedUnimplementedTalonDBServiceServer()
@@ -296,6 +328,9 @@ func (UnimplementedTalonDBServiceServer) Ancestors(context.Context, *AncestorsRe
 }
 func (UnimplementedTalonDBServiceServer) Descendants(context.Context, *DescendantsRequest) (*DocIDList, error) {
 	return nil, status.Error(codes.Unimplemented, "method Descendants not implemented")
+}
+func (UnimplementedTalonDBServiceServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[MutationEvent]) error {
+	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
 }
 func (UnimplementedTalonDBServiceServer) Health(context.Context, *emptypb.Empty) (*HealthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Health not implemented")
@@ -555,6 +590,17 @@ func _TalonDBService_Descendants_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TalonDBService_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(SubscribeRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(TalonDBServiceServer).Subscribe(m, &grpc.GenericServerStream[SubscribeRequest, MutationEvent]{ServerStream: stream})
+}
+
+// This type alias is provided for backwards compatibility with existing code that references the prior non-generic stream type by name.
+type TalonDBService_SubscribeServer = grpc.ServerStreamingServer[MutationEvent]
+
 func _TalonDBService_Health_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(emptypb.Empty)
 	if err := dec(in); err != nil {
@@ -637,6 +683,12 @@ var TalonDBService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _TalonDBService_Health_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "Subscribe",
+			Handler:       _TalonDBService_Subscribe_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "proto/talondb.proto",
 }

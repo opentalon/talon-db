@@ -22,6 +22,60 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// MutationEventKind mirrors talon-language's factstore.EventKind so the
+// adapter can map straight across.
+type MutationEventKind int32
+
+const (
+	MutationEventKind_MUTATION_EVENT_KIND_UNSPECIFIED MutationEventKind = 0
+	MutationEventKind_MUTATION_EVENT_KIND_ASSERT      MutationEventKind = 1 // doc newly written (no prior version)
+	MutationEventKind_MUTATION_EVENT_KIND_CHANGE      MutationEventKind = 2 // doc bytes changed; old_doc carries prior content
+	MutationEventKind_MUTATION_EVENT_KIND_RETRACT     MutationEventKind = 3 // doc deleted; old_doc carries prior content
+)
+
+// Enum value maps for MutationEventKind.
+var (
+	MutationEventKind_name = map[int32]string{
+		0: "MUTATION_EVENT_KIND_UNSPECIFIED",
+		1: "MUTATION_EVENT_KIND_ASSERT",
+		2: "MUTATION_EVENT_KIND_CHANGE",
+		3: "MUTATION_EVENT_KIND_RETRACT",
+	}
+	MutationEventKind_value = map[string]int32{
+		"MUTATION_EVENT_KIND_UNSPECIFIED": 0,
+		"MUTATION_EVENT_KIND_ASSERT":      1,
+		"MUTATION_EVENT_KIND_CHANGE":      2,
+		"MUTATION_EVENT_KIND_RETRACT":     3,
+	}
+)
+
+func (x MutationEventKind) Enum() *MutationEventKind {
+	p := new(MutationEventKind)
+	*p = x
+	return p
+}
+
+func (x MutationEventKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MutationEventKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_talondb_proto_enumTypes[0].Descriptor()
+}
+
+func (MutationEventKind) Type() protoreflect.EnumType {
+	return &file_proto_talondb_proto_enumTypes[0]
+}
+
+func (x MutationEventKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MutationEventKind.Descriptor instead.
+func (MutationEventKind) EnumDescriptor() ([]byte, []int) {
+	return file_proto_talondb_proto_rawDescGZIP(), []int{0}
+}
+
 // DocIDList is the canonical bag-of-doc-ids return shape. Clients are
 // free to sort/dedupe locally; the server makes no ordering promise.
 type DocIDList struct {
@@ -1324,6 +1378,145 @@ func (x *HealthResponse) GetVersion() string {
 	return ""
 }
 
+type SubscribeRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// entity_id, when non-empty, restricts the stream to one tenant.
+	EntityId string `protobuf:"bytes,1,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	// doc_id_prefix, when non-empty, restricts the stream to docs whose
+	// ID starts with this prefix. Combined with entity_id as AND.
+	DocIdPrefix   string `protobuf:"bytes,2,opt,name=doc_id_prefix,json=docIdPrefix,proto3" json:"doc_id_prefix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SubscribeRequest) Reset() {
+	*x = SubscribeRequest{}
+	mi := &file_proto_talondb_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SubscribeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SubscribeRequest) ProtoMessage() {}
+
+func (x *SubscribeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_talondb_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SubscribeRequest.ProtoReflect.Descriptor instead.
+func (*SubscribeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_talondb_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *SubscribeRequest) GetEntityId() string {
+	if x != nil {
+		return x.EntityId
+	}
+	return ""
+}
+
+func (x *SubscribeRequest) GetDocIdPrefix() string {
+	if x != nil {
+		return x.DocIdPrefix
+	}
+	return ""
+}
+
+type MutationEvent struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Kind          MutationEventKind      `protobuf:"varint,1,opt,name=kind,proto3,enum=opentalon.talondb.v1.MutationEventKind" json:"kind,omitempty"`
+	EntityId      string                 `protobuf:"bytes,2,opt,name=entity_id,json=entityId,proto3" json:"entity_id,omitempty"`
+	DocId         string                 `protobuf:"bytes,3,opt,name=doc_id,json=docId,proto3" json:"doc_id,omitempty"`
+	OldDoc        []byte                 `protobuf:"bytes,4,opt,name=old_doc,json=oldDoc,proto3" json:"old_doc,omitempty"` // empty on Assert; present on Change / Retract
+	NewDoc        []byte                 `protobuf:"bytes,5,opt,name=new_doc,json=newDoc,proto3" json:"new_doc,omitempty"` // empty on Retract; present on Assert / Change
+	AtUnixNanos   int64                  `protobuf:"varint,6,opt,name=at_unix_nanos,json=atUnixNanos,proto3" json:"at_unix_nanos,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MutationEvent) Reset() {
+	*x = MutationEvent{}
+	mi := &file_proto_talondb_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MutationEvent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MutationEvent) ProtoMessage() {}
+
+func (x *MutationEvent) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_talondb_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MutationEvent.ProtoReflect.Descriptor instead.
+func (*MutationEvent) Descriptor() ([]byte, []int) {
+	return file_proto_talondb_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *MutationEvent) GetKind() MutationEventKind {
+	if x != nil {
+		return x.Kind
+	}
+	return MutationEventKind_MUTATION_EVENT_KIND_UNSPECIFIED
+}
+
+func (x *MutationEvent) GetEntityId() string {
+	if x != nil {
+		return x.EntityId
+	}
+	return ""
+}
+
+func (x *MutationEvent) GetDocId() string {
+	if x != nil {
+		return x.DocId
+	}
+	return ""
+}
+
+func (x *MutationEvent) GetOldDoc() []byte {
+	if x != nil {
+		return x.OldDoc
+	}
+	return nil
+}
+
+func (x *MutationEvent) GetNewDoc() []byte {
+	if x != nil {
+		return x.NewDoc
+	}
+	return nil
+}
+
+func (x *MutationEvent) GetAtUnixNanos() int64 {
+	if x != nil {
+		return x.AtUnixNanos
+	}
+	return 0
+}
+
 var File_proto_talondb_proto protoreflect.FileDescriptor
 
 const file_proto_talondb_proto_rawDesc = "" +
@@ -1415,7 +1608,22 @@ const file_proto_talondb_proto_rawDesc = "" +
 	"\aroot_id\x18\x02 \x01(\tR\x06rootId\"B\n" +
 	"\x0eHealthResponse\x12\x16\n" +
 	"\x06status\x18\x01 \x01(\tR\x06status\x12\x18\n" +
-	"\aversion\x18\x02 \x01(\tR\aversion2\x94\t\n" +
+	"\aversion\x18\x02 \x01(\tR\aversion\"S\n" +
+	"\x10SubscribeRequest\x12\x1b\n" +
+	"\tentity_id\x18\x01 \x01(\tR\bentityId\x12\"\n" +
+	"\rdoc_id_prefix\x18\x02 \x01(\tR\vdocIdPrefix\"\xd6\x01\n" +
+	"\rMutationEvent\x12;\n" +
+	"\x04kind\x18\x01 \x01(\x0e2'.opentalon.talondb.v1.MutationEventKindR\x04kind\x12\x1b\n" +
+	"\tentity_id\x18\x02 \x01(\tR\bentityId\x12\x15\n" +
+	"\x06doc_id\x18\x03 \x01(\tR\x05docId\x12\x17\n" +
+	"\aold_doc\x18\x04 \x01(\fR\x06oldDoc\x12\x17\n" +
+	"\anew_doc\x18\x05 \x01(\fR\x06newDoc\x12\"\n" +
+	"\rat_unix_nanos\x18\x06 \x01(\x03R\vatUnixNanos*\x99\x01\n" +
+	"\x11MutationEventKind\x12#\n" +
+	"\x1fMUTATION_EVENT_KIND_UNSPECIFIED\x10\x00\x12\x1e\n" +
+	"\x1aMUTATION_EVENT_KIND_ASSERT\x10\x01\x12\x1e\n" +
+	"\x1aMUTATION_EVENT_KIND_CHANGE\x10\x02\x12\x1f\n" +
+	"\x1bMUTATION_EVENT_KIND_RETRACT\x10\x032\xf0\t\n" +
 	"\x0eTalonDBService\x12?\n" +
 	"\x03Put\x12 .opentalon.talondb.v1.PutRequest\x1a\x16.google.protobuf.Empty\x12J\n" +
 	"\x03Get\x12 .opentalon.talondb.v1.GetRequest\x1a!.opentalon.talondb.v1.GetResponse\x12E\n" +
@@ -1430,7 +1638,8 @@ const file_proto_talondb_proto_rawDesc = "" +
 	"\x05Stats\x12\".opentalon.talondb.v1.StatsRequest\x1a#.opentalon.talondb.v1.StatsResponse\x12Y\n" +
 	"\bLastSeen\x12%.opentalon.talondb.v1.LastSeenRequest\x1a&.opentalon.talondb.v1.LastSeenResponse\x12U\n" +
 	"\tAncestors\x12&.opentalon.talondb.v1.AncestorsRequest\x1a .opentalon.talondb.v1.StringList\x12X\n" +
-	"\vDescendants\x12(.opentalon.talondb.v1.DescendantsRequest\x1a\x1f.opentalon.talondb.v1.DocIDList\x12F\n" +
+	"\vDescendants\x12(.opentalon.talondb.v1.DescendantsRequest\x1a\x1f.opentalon.talondb.v1.DocIDList\x12Z\n" +
+	"\tSubscribe\x12&.opentalon.talondb.v1.SubscribeRequest\x1a#.opentalon.talondb.v1.MutationEvent0\x01\x12F\n" +
 	"\x06Health\x12\x16.google.protobuf.Empty\x1a$.opentalon.talondb.v1.HealthResponseB/Z-github.com/opentalon/talon-db/proto/talondbpbb\x06proto3"
 
 var (
@@ -1445,69 +1654,76 @@ func file_proto_talondb_proto_rawDescGZIP() []byte {
 	return file_proto_talondb_proto_rawDescData
 }
 
-var file_proto_talondb_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_proto_talondb_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_proto_talondb_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_proto_talondb_proto_goTypes = []any{
-	(*DocIDList)(nil),           // 0: opentalon.talondb.v1.DocIDList
-	(*StringList)(nil),          // 1: opentalon.talondb.v1.StringList
-	(*PutRequest)(nil),          // 2: opentalon.talondb.v1.PutRequest
-	(*GetRequest)(nil),          // 3: opentalon.talondb.v1.GetRequest
-	(*GetResponse)(nil),         // 4: opentalon.talondb.v1.GetResponse
-	(*DeleteRequest)(nil),       // 5: opentalon.talondb.v1.DeleteRequest
-	(*BatchPutEntry)(nil),       // 6: opentalon.talondb.v1.BatchPutEntry
-	(*BatchPutRequest)(nil),     // 7: opentalon.talondb.v1.BatchPutRequest
-	(*LookupRequest)(nil),       // 8: opentalon.talondb.v1.LookupRequest
-	(*LookupPrefixRequest)(nil), // 9: opentalon.talondb.v1.LookupPrefixRequest
-	(*NumericRangeRequest)(nil), // 10: opentalon.talondb.v1.NumericRangeRequest
-	(*WindowRequest)(nil),       // 11: opentalon.talondb.v1.WindowRequest
-	(*TemporalEvent)(nil),       // 12: opentalon.talondb.v1.TemporalEvent
-	(*WindowResponse)(nil),      // 13: opentalon.talondb.v1.WindowResponse
-	(*GroupRequest)(nil),        // 14: opentalon.talondb.v1.GroupRequest
-	(*GroupResponse)(nil),       // 15: opentalon.talondb.v1.GroupResponse
-	(*StatsRequest)(nil),        // 16: opentalon.talondb.v1.StatsRequest
-	(*StatsResponse)(nil),       // 17: opentalon.talondb.v1.StatsResponse
-	(*LastSeenRequest)(nil),     // 18: opentalon.talondb.v1.LastSeenRequest
-	(*LastSeenResponse)(nil),    // 19: opentalon.talondb.v1.LastSeenResponse
-	(*AncestorsRequest)(nil),    // 20: opentalon.talondb.v1.AncestorsRequest
-	(*DescendantsRequest)(nil),  // 21: opentalon.talondb.v1.DescendantsRequest
-	(*HealthResponse)(nil),      // 22: opentalon.talondb.v1.HealthResponse
-	(*emptypb.Empty)(nil),       // 23: google.protobuf.Empty
+	(MutationEventKind)(0),      // 0: opentalon.talondb.v1.MutationEventKind
+	(*DocIDList)(nil),           // 1: opentalon.talondb.v1.DocIDList
+	(*StringList)(nil),          // 2: opentalon.talondb.v1.StringList
+	(*PutRequest)(nil),          // 3: opentalon.talondb.v1.PutRequest
+	(*GetRequest)(nil),          // 4: opentalon.talondb.v1.GetRequest
+	(*GetResponse)(nil),         // 5: opentalon.talondb.v1.GetResponse
+	(*DeleteRequest)(nil),       // 6: opentalon.talondb.v1.DeleteRequest
+	(*BatchPutEntry)(nil),       // 7: opentalon.talondb.v1.BatchPutEntry
+	(*BatchPutRequest)(nil),     // 8: opentalon.talondb.v1.BatchPutRequest
+	(*LookupRequest)(nil),       // 9: opentalon.talondb.v1.LookupRequest
+	(*LookupPrefixRequest)(nil), // 10: opentalon.talondb.v1.LookupPrefixRequest
+	(*NumericRangeRequest)(nil), // 11: opentalon.talondb.v1.NumericRangeRequest
+	(*WindowRequest)(nil),       // 12: opentalon.talondb.v1.WindowRequest
+	(*TemporalEvent)(nil),       // 13: opentalon.talondb.v1.TemporalEvent
+	(*WindowResponse)(nil),      // 14: opentalon.talondb.v1.WindowResponse
+	(*GroupRequest)(nil),        // 15: opentalon.talondb.v1.GroupRequest
+	(*GroupResponse)(nil),       // 16: opentalon.talondb.v1.GroupResponse
+	(*StatsRequest)(nil),        // 17: opentalon.talondb.v1.StatsRequest
+	(*StatsResponse)(nil),       // 18: opentalon.talondb.v1.StatsResponse
+	(*LastSeenRequest)(nil),     // 19: opentalon.talondb.v1.LastSeenRequest
+	(*LastSeenResponse)(nil),    // 20: opentalon.talondb.v1.LastSeenResponse
+	(*AncestorsRequest)(nil),    // 21: opentalon.talondb.v1.AncestorsRequest
+	(*DescendantsRequest)(nil),  // 22: opentalon.talondb.v1.DescendantsRequest
+	(*HealthResponse)(nil),      // 23: opentalon.talondb.v1.HealthResponse
+	(*SubscribeRequest)(nil),    // 24: opentalon.talondb.v1.SubscribeRequest
+	(*MutationEvent)(nil),       // 25: opentalon.talondb.v1.MutationEvent
+	(*emptypb.Empty)(nil),       // 26: google.protobuf.Empty
 }
 var file_proto_talondb_proto_depIdxs = []int32{
-	6,  // 0: opentalon.talondb.v1.BatchPutRequest.entries:type_name -> opentalon.talondb.v1.BatchPutEntry
-	12, // 1: opentalon.talondb.v1.WindowResponse.events:type_name -> opentalon.talondb.v1.TemporalEvent
-	2,  // 2: opentalon.talondb.v1.TalonDBService.Put:input_type -> opentalon.talondb.v1.PutRequest
-	3,  // 3: opentalon.talondb.v1.TalonDBService.Get:input_type -> opentalon.talondb.v1.GetRequest
-	5,  // 4: opentalon.talondb.v1.TalonDBService.Delete:input_type -> opentalon.talondb.v1.DeleteRequest
-	7,  // 5: opentalon.talondb.v1.TalonDBService.BatchPut:input_type -> opentalon.talondb.v1.BatchPutRequest
-	8,  // 6: opentalon.talondb.v1.TalonDBService.Lookup:input_type -> opentalon.talondb.v1.LookupRequest
-	9,  // 7: opentalon.talondb.v1.TalonDBService.LookupPrefix:input_type -> opentalon.talondb.v1.LookupPrefixRequest
-	10, // 8: opentalon.talondb.v1.TalonDBService.LookupNumericRange:input_type -> opentalon.talondb.v1.NumericRangeRequest
-	11, // 9: opentalon.talondb.v1.TalonDBService.WindowQuery:input_type -> opentalon.talondb.v1.WindowRequest
-	14, // 10: opentalon.talondb.v1.TalonDBService.GroupCount:input_type -> opentalon.talondb.v1.GroupRequest
-	16, // 11: opentalon.talondb.v1.TalonDBService.Stats:input_type -> opentalon.talondb.v1.StatsRequest
-	18, // 12: opentalon.talondb.v1.TalonDBService.LastSeen:input_type -> opentalon.talondb.v1.LastSeenRequest
-	20, // 13: opentalon.talondb.v1.TalonDBService.Ancestors:input_type -> opentalon.talondb.v1.AncestorsRequest
-	21, // 14: opentalon.talondb.v1.TalonDBService.Descendants:input_type -> opentalon.talondb.v1.DescendantsRequest
-	23, // 15: opentalon.talondb.v1.TalonDBService.Health:input_type -> google.protobuf.Empty
-	23, // 16: opentalon.talondb.v1.TalonDBService.Put:output_type -> google.protobuf.Empty
-	4,  // 17: opentalon.talondb.v1.TalonDBService.Get:output_type -> opentalon.talondb.v1.GetResponse
-	23, // 18: opentalon.talondb.v1.TalonDBService.Delete:output_type -> google.protobuf.Empty
-	23, // 19: opentalon.talondb.v1.TalonDBService.BatchPut:output_type -> google.protobuf.Empty
-	0,  // 20: opentalon.talondb.v1.TalonDBService.Lookup:output_type -> opentalon.talondb.v1.DocIDList
-	0,  // 21: opentalon.talondb.v1.TalonDBService.LookupPrefix:output_type -> opentalon.talondb.v1.DocIDList
-	0,  // 22: opentalon.talondb.v1.TalonDBService.LookupNumericRange:output_type -> opentalon.talondb.v1.DocIDList
-	13, // 23: opentalon.talondb.v1.TalonDBService.WindowQuery:output_type -> opentalon.talondb.v1.WindowResponse
-	15, // 24: opentalon.talondb.v1.TalonDBService.GroupCount:output_type -> opentalon.talondb.v1.GroupResponse
-	17, // 25: opentalon.talondb.v1.TalonDBService.Stats:output_type -> opentalon.talondb.v1.StatsResponse
-	19, // 26: opentalon.talondb.v1.TalonDBService.LastSeen:output_type -> opentalon.talondb.v1.LastSeenResponse
-	1,  // 27: opentalon.talondb.v1.TalonDBService.Ancestors:output_type -> opentalon.talondb.v1.StringList
-	0,  // 28: opentalon.talondb.v1.TalonDBService.Descendants:output_type -> opentalon.talondb.v1.DocIDList
-	22, // 29: opentalon.talondb.v1.TalonDBService.Health:output_type -> opentalon.talondb.v1.HealthResponse
-	16, // [16:30] is the sub-list for method output_type
-	2,  // [2:16] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	7,  // 0: opentalon.talondb.v1.BatchPutRequest.entries:type_name -> opentalon.talondb.v1.BatchPutEntry
+	13, // 1: opentalon.talondb.v1.WindowResponse.events:type_name -> opentalon.talondb.v1.TemporalEvent
+	0,  // 2: opentalon.talondb.v1.MutationEvent.kind:type_name -> opentalon.talondb.v1.MutationEventKind
+	3,  // 3: opentalon.talondb.v1.TalonDBService.Put:input_type -> opentalon.talondb.v1.PutRequest
+	4,  // 4: opentalon.talondb.v1.TalonDBService.Get:input_type -> opentalon.talondb.v1.GetRequest
+	6,  // 5: opentalon.talondb.v1.TalonDBService.Delete:input_type -> opentalon.talondb.v1.DeleteRequest
+	8,  // 6: opentalon.talondb.v1.TalonDBService.BatchPut:input_type -> opentalon.talondb.v1.BatchPutRequest
+	9,  // 7: opentalon.talondb.v1.TalonDBService.Lookup:input_type -> opentalon.talondb.v1.LookupRequest
+	10, // 8: opentalon.talondb.v1.TalonDBService.LookupPrefix:input_type -> opentalon.talondb.v1.LookupPrefixRequest
+	11, // 9: opentalon.talondb.v1.TalonDBService.LookupNumericRange:input_type -> opentalon.talondb.v1.NumericRangeRequest
+	12, // 10: opentalon.talondb.v1.TalonDBService.WindowQuery:input_type -> opentalon.talondb.v1.WindowRequest
+	15, // 11: opentalon.talondb.v1.TalonDBService.GroupCount:input_type -> opentalon.talondb.v1.GroupRequest
+	17, // 12: opentalon.talondb.v1.TalonDBService.Stats:input_type -> opentalon.talondb.v1.StatsRequest
+	19, // 13: opentalon.talondb.v1.TalonDBService.LastSeen:input_type -> opentalon.talondb.v1.LastSeenRequest
+	21, // 14: opentalon.talondb.v1.TalonDBService.Ancestors:input_type -> opentalon.talondb.v1.AncestorsRequest
+	22, // 15: opentalon.talondb.v1.TalonDBService.Descendants:input_type -> opentalon.talondb.v1.DescendantsRequest
+	24, // 16: opentalon.talondb.v1.TalonDBService.Subscribe:input_type -> opentalon.talondb.v1.SubscribeRequest
+	26, // 17: opentalon.talondb.v1.TalonDBService.Health:input_type -> google.protobuf.Empty
+	26, // 18: opentalon.talondb.v1.TalonDBService.Put:output_type -> google.protobuf.Empty
+	5,  // 19: opentalon.talondb.v1.TalonDBService.Get:output_type -> opentalon.talondb.v1.GetResponse
+	26, // 20: opentalon.talondb.v1.TalonDBService.Delete:output_type -> google.protobuf.Empty
+	26, // 21: opentalon.talondb.v1.TalonDBService.BatchPut:output_type -> google.protobuf.Empty
+	1,  // 22: opentalon.talondb.v1.TalonDBService.Lookup:output_type -> opentalon.talondb.v1.DocIDList
+	1,  // 23: opentalon.talondb.v1.TalonDBService.LookupPrefix:output_type -> opentalon.talondb.v1.DocIDList
+	1,  // 24: opentalon.talondb.v1.TalonDBService.LookupNumericRange:output_type -> opentalon.talondb.v1.DocIDList
+	14, // 25: opentalon.talondb.v1.TalonDBService.WindowQuery:output_type -> opentalon.talondb.v1.WindowResponse
+	16, // 26: opentalon.talondb.v1.TalonDBService.GroupCount:output_type -> opentalon.talondb.v1.GroupResponse
+	18, // 27: opentalon.talondb.v1.TalonDBService.Stats:output_type -> opentalon.talondb.v1.StatsResponse
+	20, // 28: opentalon.talondb.v1.TalonDBService.LastSeen:output_type -> opentalon.talondb.v1.LastSeenResponse
+	2,  // 29: opentalon.talondb.v1.TalonDBService.Ancestors:output_type -> opentalon.talondb.v1.StringList
+	1,  // 30: opentalon.talondb.v1.TalonDBService.Descendants:output_type -> opentalon.talondb.v1.DocIDList
+	25, // 31: opentalon.talondb.v1.TalonDBService.Subscribe:output_type -> opentalon.talondb.v1.MutationEvent
+	23, // 32: opentalon.talondb.v1.TalonDBService.Health:output_type -> opentalon.talondb.v1.HealthResponse
+	18, // [18:33] is the sub-list for method output_type
+	3,  // [3:18] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_proto_talondb_proto_init() }
@@ -1520,13 +1736,14 @@ func file_proto_talondb_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_talondb_proto_rawDesc), len(file_proto_talondb_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   23,
+			NumEnums:      1,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_proto_talondb_proto_goTypes,
 		DependencyIndexes: file_proto_talondb_proto_depIdxs,
+		EnumInfos:         file_proto_talondb_proto_enumTypes,
 		MessageInfos:      file_proto_talondb_proto_msgTypes,
 	}.Build()
 	File_proto_talondb_proto = out.File

@@ -33,6 +33,13 @@ service TalonDBService {
   rpc Ancestors(AncestorsRequest) returns (StringList);
   rpc Descendants(DescendantsRequest) returns (DocIDList);
 
+  // Subscribe streams MutationEvents for every committed Put / Delete.
+  // The server-side stream stays open until the client cancels or the
+  // server shuts down. SubscribeRequest filters narrow the stream
+  // server-side; an empty entity_id matches every tenant, an empty
+  // doc_id_prefix matches every doc.
+  rpc Subscribe(SubscribeRequest) returns (stream MutationEvent);
+
   // Operational
   rpc Health(google.protobuf.Empty) returns (HealthResponse);
 }
@@ -169,4 +176,32 @@ message DescendantsRequest {
 message HealthResponse {
   string status  = 1;
   string version = 2;
+}
+
+// ---------- Mutation events ----------
+
+// MutationEventKind mirrors talon-language's factstore.EventKind so the
+// adapter can map straight across.
+enum MutationEventKind {
+  MUTATION_EVENT_KIND_UNSPECIFIED = 0;
+  MUTATION_EVENT_KIND_ASSERT      = 1;  // doc newly written (no prior version)
+  MUTATION_EVENT_KIND_CHANGE      = 2;  // doc bytes changed; old_doc carries prior content
+  MUTATION_EVENT_KIND_RETRACT     = 3;  // doc deleted; old_doc carries prior content
+}
+
+message SubscribeRequest {
+  // entity_id, when non-empty, restricts the stream to one tenant.
+  string entity_id     = 1;
+  // doc_id_prefix, when non-empty, restricts the stream to docs whose
+  // ID starts with this prefix. Combined with entity_id as AND.
+  string doc_id_prefix = 2;
+}
+
+message MutationEvent {
+  MutationEventKind kind          = 1;
+  string            entity_id     = 2;
+  string            doc_id        = 3;
+  bytes             old_doc       = 4;  // empty on Assert; present on Change / Retract
+  bytes             new_doc       = 5;  // empty on Retract; present on Assert / Change
+  int64             at_unix_nanos = 6;
 }
