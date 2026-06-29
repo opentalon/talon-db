@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/opentalon/talon-db/bboltstore"
-	"github.com/opentalon/talon-db/internal/grpcserver"
+	"github.com/opentalon/talon-db/grpcserver"
 	"github.com/opentalon/talon-db/proto/talondbpb"
 
 	"google.golang.org/grpc"
