@@ -33,6 +33,12 @@ service TalonDBService {
   rpc Ancestors(AncestorsRequest) returns (StringList);
   rpc Descendants(DescendantsRequest) returns (DocIDList);
 
+  // SequenceJoin scans temporal indexes for one or more items and
+  // returns the items whose event log contains the requested step
+  // sequence in order, with total span at most window_nanos. Empty
+  // item_ids means scan every item under entity_id.
+  rpc SequenceJoin(SequenceJoinRequest) returns (SequenceJoinResponse);
+
   // ClusterQuery walks a (entity, itemID)'s temporal index and returns
   // non-overlapping clusters of events whose total span is at most
   // window_nanos and whose size is at least min_size. Replaces the
@@ -211,6 +217,20 @@ message MutationEvent {
   bytes             old_doc       = 4;  // empty on Assert; present on Change / Retract
   bytes             new_doc       = 5;  // empty on Retract; present on Assert / Change
   int64             at_unix_nanos = 6;
+}
+
+message SequenceJoinRequest {
+  string entity_id         = 1;
+  repeated string steps    = 2;  // event type names in order (≥1)
+  int64  window_nanos      = 3;  // 0 = no upper bound on span
+  repeated string item_ids = 4;  // empty = scan every item under entity_id
+}
+message SequenceJoinResponse {
+  repeated SequenceMatch matches = 1;
+}
+message SequenceMatch {
+  string item_id                = 1;
+  repeated TemporalEvent events = 2;  // exactly len(steps) events, in step order
 }
 
 message ClusterQueryRequest {

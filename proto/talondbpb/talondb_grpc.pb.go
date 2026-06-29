@@ -33,6 +33,7 @@ const (
 	TalonDBService_LastSeen_FullMethodName           = "/opentalon.talondb.v1.TalonDBService/LastSeen"
 	TalonDBService_Ancestors_FullMethodName          = "/opentalon.talondb.v1.TalonDBService/Ancestors"
 	TalonDBService_Descendants_FullMethodName        = "/opentalon.talondb.v1.TalonDBService/Descendants"
+	TalonDBService_SequenceJoin_FullMethodName       = "/opentalon.talondb.v1.TalonDBService/SequenceJoin"
 	TalonDBService_ClusterQuery_FullMethodName       = "/opentalon.talondb.v1.TalonDBService/ClusterQuery"
 	TalonDBService_Subscribe_FullMethodName          = "/opentalon.talondb.v1.TalonDBService/Subscribe"
 	TalonDBService_Health_FullMethodName             = "/opentalon.talondb.v1.TalonDBService/Health"
@@ -67,6 +68,11 @@ type TalonDBServiceClient interface {
 	LastSeen(ctx context.Context, in *LastSeenRequest, opts ...grpc.CallOption) (*LastSeenResponse, error)
 	Ancestors(ctx context.Context, in *AncestorsRequest, opts ...grpc.CallOption) (*StringList, error)
 	Descendants(ctx context.Context, in *DescendantsRequest, opts ...grpc.CallOption) (*DocIDList, error)
+	// SequenceJoin scans temporal indexes for one or more items and
+	// returns the items whose event log contains the requested step
+	// sequence in order, with total span at most window_nanos. Empty
+	// item_ids means scan every item under entity_id.
+	SequenceJoin(ctx context.Context, in *SequenceJoinRequest, opts ...grpc.CallOption) (*SequenceJoinResponse, error)
 	// ClusterQuery walks a (entity, itemID)'s temporal index and returns
 	// non-overlapping clusters of events whose total span is at most
 	// window_nanos and whose size is at least min_size. Replaces the
@@ -221,6 +227,16 @@ func (c *talonDBServiceClient) Descendants(ctx context.Context, in *DescendantsR
 	return out, nil
 }
 
+func (c *talonDBServiceClient) SequenceJoin(ctx context.Context, in *SequenceJoinRequest, opts ...grpc.CallOption) (*SequenceJoinResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(SequenceJoinResponse)
+	err := c.cc.Invoke(ctx, TalonDBService_SequenceJoin_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *talonDBServiceClient) ClusterQuery(ctx context.Context, in *ClusterQueryRequest, opts ...grpc.CallOption) (*ClusterQueryResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(ClusterQueryResponse)
@@ -289,6 +305,11 @@ type TalonDBServiceServer interface {
 	LastSeen(context.Context, *LastSeenRequest) (*LastSeenResponse, error)
 	Ancestors(context.Context, *AncestorsRequest) (*StringList, error)
 	Descendants(context.Context, *DescendantsRequest) (*DocIDList, error)
+	// SequenceJoin scans temporal indexes for one or more items and
+	// returns the items whose event log contains the requested step
+	// sequence in order, with total span at most window_nanos. Empty
+	// item_ids means scan every item under entity_id.
+	SequenceJoin(context.Context, *SequenceJoinRequest) (*SequenceJoinResponse, error)
 	// ClusterQuery walks a (entity, itemID)'s temporal index and returns
 	// non-overlapping clusters of events whose total span is at most
 	// window_nanos and whose size is at least min_size. Replaces the
@@ -351,6 +372,9 @@ func (UnimplementedTalonDBServiceServer) Ancestors(context.Context, *AncestorsRe
 }
 func (UnimplementedTalonDBServiceServer) Descendants(context.Context, *DescendantsRequest) (*DocIDList, error) {
 	return nil, status.Error(codes.Unimplemented, "method Descendants not implemented")
+}
+func (UnimplementedTalonDBServiceServer) SequenceJoin(context.Context, *SequenceJoinRequest) (*SequenceJoinResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SequenceJoin not implemented")
 }
 func (UnimplementedTalonDBServiceServer) ClusterQuery(context.Context, *ClusterQueryRequest) (*ClusterQueryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ClusterQuery not implemented")
@@ -616,6 +640,24 @@ func _TalonDBService_Descendants_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TalonDBService_SequenceJoin_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SequenceJoinRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TalonDBServiceServer).SequenceJoin(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TalonDBService_SequenceJoin_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TalonDBServiceServer).SequenceJoin(ctx, req.(*SequenceJoinRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _TalonDBService_ClusterQuery_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ClusterQueryRequest)
 	if err := dec(in); err != nil {
@@ -721,6 +763,10 @@ var TalonDBService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Descendants",
 			Handler:    _TalonDBService_Descendants_Handler,
+		},
+		{
+			MethodName: "SequenceJoin",
+			Handler:    _TalonDBService_SequenceJoin_Handler,
 		},
 		{
 			MethodName: "ClusterQuery",
