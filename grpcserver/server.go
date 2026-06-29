@@ -122,6 +122,35 @@ func (s *Server) WindowQuery(ctx context.Context, req *talondbpb.WindowRequest) 
 	return out, nil
 }
 
+func (s *Server) SequenceJoin(ctx context.Context, req *talondbpb.SequenceJoinRequest) (*talondbpb.SequenceJoinResponse, error) {
+	matches, err := s.store.SequenceJoin(
+		ctx,
+		req.GetEntityId(),
+		req.GetItemIds(),
+		req.GetSteps(),
+		time.Duration(req.GetWindowNanos()),
+	)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	out := &talondbpb.SequenceJoinResponse{Matches: make([]*talondbpb.SequenceMatch, 0, len(matches))}
+	for _, m := range matches {
+		events := make([]*talondbpb.TemporalEvent, 0, len(m.Events))
+		for _, e := range m.Events {
+			events = append(events, &talondbpb.TemporalEvent{
+				DocId:       e.DocID,
+				Type:        e.Type,
+				AtUnixNanos: e.At.UnixNano(),
+			})
+		}
+		out.Matches = append(out.Matches, &talondbpb.SequenceMatch{
+			ItemId: m.ItemID,
+			Events: events,
+		})
+	}
+	return out, nil
+}
+
 func (s *Server) ClusterQuery(ctx context.Context, req *talondbpb.ClusterQueryRequest) (*talondbpb.ClusterQueryResponse, error) {
 	clusters, err := s.store.ClusterQuery(
 		ctx,

@@ -58,6 +58,14 @@ type TemporalCluster struct {
 	Events []TemporalEvent
 }
 
+// SequenceMatch is one item whose event log satisfied a SequenceJoin
+// query. Events lists exactly the events that matched each step, in
+// step order; len(Events) == len(steps).
+type SequenceMatch struct {
+	ItemID string
+	Events []TemporalEvent
+}
+
 // GroupBucket is the value type for GroupCount: how many docs share
 // a particular (itemID, attr, value) tuple and when the first / last
 // were seen.
@@ -110,6 +118,13 @@ type IndexedStore interface {
 	// client-side "fetch all events + count" pattern for "N+ records
 	// within W" detect blocks. `window` of 0 means no upper bound.
 	ClusterQuery(ctx context.Context, entityID, itemID string, types []string, window time.Duration, minSize int) ([]TemporalCluster, error)
+
+	// SequenceJoin returns the items whose event log contains `steps`
+	// in order, with total span at most `window`. Empty `itemIDs` scans
+	// every item under entityID. Server-side equivalent of the
+	// client-side matchesSequence pass over WindowQuery results, used
+	// by detect blocks of the form "A followed_by B within N".
+	SequenceJoin(ctx context.Context, entityID string, itemIDs, steps []string, window time.Duration) ([]SequenceMatch, error)
 
 	// GroupCount returns the pre-aggregated counter for one
 	// (itemID, attr, value) tuple. Returns a zero-valued GroupBucket
