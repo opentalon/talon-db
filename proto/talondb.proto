@@ -5,6 +5,7 @@ package opentalon.talondb.v1;
 option go_package = "github.com/opentalon/talon-db/proto/talondbpb";
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/struct.proto";
 
 // TalonDBService is the wire surface exposed by `talondb-server`. The
 // gRPC service maps 1:1 to the talondb.IndexedStore Go interface.
@@ -32,6 +33,13 @@ service TalonDBService {
   rpc LastSeen(LastSeenRequest) returns (LastSeenResponse);
   rpc Ancestors(AncestorsRequest) returns (StringList);
   rpc Descendants(DescendantsRequest) returns (DocIDList);
+
+  // Query is the server-side composer for structured queries: anchor
+  // narrowing via the inverted index + per-doc clause evaluation. Lets
+  // non-Go clients run a multi-clause query in one round-trip instead
+  // of replicating the talon-language adapter's composition logic.
+  // Supported clauses: Pattern, Predicate, Or, Not, FullText.
+  rpc Query(QueryRequest) returns (QueryResponse);
 
   // SequenceJoin scans temporal indexes for one or more items and
   // returns the items whose event log contains the requested step
@@ -217,6 +225,71 @@ message MutationEvent {
   bytes             old_doc       = 4;  // empty on Assert; present on Change / Retract
   bytes             new_doc       = 5;  // empty on Retract; present on Assert / Change
   int64             at_unix_nanos = 6;
+}
+
+// ---------- Structured Query (RPC `Query`) ----------
+
+message QueryRequest {
+  string entity_id      = 1;
+  repeated string find  = 2;  // variable names to project, e.g. ["?e", "?km"]
+  repeated Clause where = 3;
+}
+message QueryResponse {
+  repeated QueryRow rows = 1;
+}
+message QueryRow {
+  // One Value per Find column. Variables that didn't bind in this row
+  // map to NULL (google.protobuf.NullValue).
+  repeated google.protobuf.Value values = 1;
+}
+
+message Clause {
+  oneof clause {
+    Pattern   pattern   = 1;
+    Predicate predicate = 2;
+    Or        or        = 3;
+    Not       not       = 4;
+    FullText  fulltext  = 5;
+  }
+}
+
+message Pattern {
+  Term   entity    = 1;
+  string attribute = 2;  // namespaced, e.g. ":record/type"; "" = wildcard
+  Term   value     = 3;
+}
+
+message Predicate {
+  // Op is one of: "<", "<=", ">", ">=", "==", "!=", "starts_with",
+  // "ends_with", "contains". A string here (instead of an enum) keeps
+  // the wire forward-compatible with future operators.
+  string op    = 1;
+  Term   left  = 2;
+  Term   right = 3;
+}
+
+message Or {
+  repeated ClauseList branches = 1;
+}
+message ClauseList {
+  repeated Clause clauses = 1;
+}
+
+message Not {
+  repeated Clause body = 1;
+}
+
+message FullText {
+  Term   entity    = 1;
+  string query     = 2;       // substring; case-insensitive
+  string attribute = 3;       // "" = scan every string value on the entity
+}
+
+message Term {
+  // Exactly one of var or literal should be set. An empty var with
+  // null literal is the wildcard "any".
+  string                var     = 1;
+  google.protobuf.Value literal = 2;
 }
 
 message SequenceJoinRequest {
