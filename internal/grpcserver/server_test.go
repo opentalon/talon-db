@@ -30,7 +30,7 @@ func dial(t *testing.T) (talondbpb.TalonDBServiceClient, func()) {
 
 	lis := bufconn.Listen(bufSize)
 	srv := grpc.NewServer()
-	talondbpb.RegisterTalonDBServiceServer(srv, grpcserver.New(store, "test"))
+	talondbpb.RegisterTalonDBServiceServer(srv, grpcserver.New(store, store.Events(), "test"))
 	go func() { _ = srv.Serve(lis) }()
 
 	conn, err := grpc.NewClient("passthrough://bufnet",

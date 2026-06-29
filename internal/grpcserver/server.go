@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"math"
+	"strings"
 	"time"
 
 	talondb "github.com/opentalon/talon-db"
@@ -18,17 +19,21 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// Server wraps a talondb.IndexedStore.
+// Server wraps a talondb.IndexedStore. An optional EventEmitter, when
+// non-nil, powers the Subscribe streaming RPC; clients can subscribe
+// to MutationEvents that fire post-commit.
 type Server struct {
 	talondbpb.UnimplementedTalonDBServiceServer
 	store   talondb.IndexedStore
+	events  *talondb.EventEmitter
 	version string
 }
 
-// New constructs a Server over the given store. version is reported by
-// the Health RPC for clients that want to gate behaviour on it.
-func New(store talondb.IndexedStore, version string) *Server {
-	return &Server{store: store, version: version}
+// New constructs a Server over the given store. version is reported
+// by the Health RPC. events, when non-nil, enables the Subscribe RPC;
+// pass store.Events() if the backend supports it.
+func New(store talondb.IndexedStore, events *talondb.EventEmitter, version string) *Server {
+	return &Server{store: store, events: events, version: version}
 }
 
 // ---------- DocumentStore ----------
@@ -170,6 +175,87 @@ func (s *Server) Descendants(ctx context.Context, req *talondbpb.DescendantsRequ
 		return nil, mapError(err)
 	}
 	return docIDListFromSet(set), nil
+}
+
+// ---------- Subscribe ----------
+
+// subscribeQueueDepth bounds the per-subscriber buffer. A subscriber
+// that falls behind beyond this depth is dropped from the stream with
+// codes.ResourceExhausted; the client can reconnect to resync. The
+// alternative — blocking the producer — would let a slow consumer
+// stall commits across the whole server.
+const subscribeQueueDepth = 1024
+
+// Subscribe streams MutationEvents that fire after each committed Put
+// or Delete. Filtering by entity_id and doc_id_prefix is applied
+// server-side. The stream terminates when the client cancels its
+// context, the server shuts down, or the subscriber falls behind by
+// more than subscribeQueueDepth events.
+func (s *Server) Subscribe(req *talondbpb.SubscribeRequest, stream talondbpb.TalonDBService_SubscribeServer) error {
+	if s.events == nil {
+		return status.Error(codes.Unimplemented, "talondb: server constructed without an EventEmitter")
+	}
+	ctx := stream.Context()
+	ch := make(chan talondb.MutationEvent, subscribeQueueDepth)
+
+	entityFilter := req.GetEntityId()
+	prefixFilter := req.GetDocIdPrefix()
+
+	unsubscribe := s.events.Subscribe(func(_ context.Context, ev talondb.MutationEvent) {
+		if entityFilter != "" && ev.EntityID != entityFilter {
+			return
+		}
+		if prefixFilter != "" && !strings.HasPrefix(ev.DocID, prefixFilter) {
+			return
+		}
+		select {
+		case ch <- ev:
+		default:
+			// Buffer full — close the channel to signal the streamer
+			// to terminate. Subsequent events for this subscriber are
+			// dropped on the floor; client must reconnect.
+			select {
+			case <-ctx.Done():
+			default:
+				// Best-effort close; the receiving goroutine will see
+				// the closed channel and exit.
+			}
+		}
+	})
+	defer unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case ev, ok := <-ch:
+			if !ok {
+				return status.Error(codes.ResourceExhausted, "talondb: subscriber buffer overflow; reconnect to resync")
+			}
+			if err := stream.Send(&talondbpb.MutationEvent{
+				Kind:        mutationKindToProto(ev.Kind),
+				EntityId:    ev.EntityID,
+				DocId:       ev.DocID,
+				OldDoc:      ev.OldDoc,
+				NewDoc:      ev.NewDoc,
+				AtUnixNanos: ev.AtUnixNanos,
+			}); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+func mutationKindToProto(k talondb.EventKind) talondbpb.MutationEventKind {
+	switch k {
+	case talondb.EventAssert:
+		return talondbpb.MutationEventKind_MUTATION_EVENT_KIND_ASSERT
+	case talondb.EventChange:
+		return talondbpb.MutationEventKind_MUTATION_EVENT_KIND_CHANGE
+	case talondb.EventRetract:
+		return talondbpb.MutationEventKind_MUTATION_EVENT_KIND_RETRACT
+	}
+	return talondbpb.MutationEventKind_MUTATION_EVENT_KIND_UNSPECIFIED
 }
 
 // ---------- Operational ----------
