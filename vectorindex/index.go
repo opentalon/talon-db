@@ -67,6 +67,7 @@ func (m Metric) distanceFunc() hnsw.DistanceFunc {
 type Index struct {
 	mu     sync.RWMutex
 	scopes map[scopeKey]*scopeState
+	opts   Options
 }
 
 type scopeKey struct {
@@ -87,9 +88,31 @@ type scopeState struct {
 	tombstones map[string]bool
 }
 
-// New returns an empty Index.
+// Options tune the HNSW graphs the Index spins up for each scope.
+// Zero values fall back to coder/hnsw v0.6.1 defaults (M=16, Ml=0.25,
+// EfSearch=20). Realistic recall at SIFT-class scale benefits from a
+// larger EfSearch (≥ 100); the defaults are tuned for tiny corpora.
+//
+// All Options are applied to every scope created after New; existing
+// scopes keep their original settings. Mutating Options on a returned
+// Index has no effect.
+type Options struct {
+	M        int
+	Ml       float64
+	EfSearch int
+}
+
+// New returns an empty Index. Use NewWithOptions to tune the
+// underlying HNSW graphs.
 func New() *Index {
-	return &Index{scopes: map[scopeKey]*scopeState{}}
+	return NewWithOptions(Options{})
+}
+
+// NewWithOptions returns an empty Index that creates each scope's
+// HNSW graph with the given knobs. Zero values keep the upstream
+// defaults.
+func NewWithOptions(o Options) *Index {
+	return &Index{scopes: map[scopeKey]*scopeState{}, opts: o}
 }
 
 // Insert adds (or replaces) a vector under (entity, scope, id). On the
@@ -112,7 +135,7 @@ func (i *Index) Insert(entity, scope, id string, vec []float32, metric Metric) e
 	key := scopeKey{entity, scope}
 	st, ok := i.scopes[key]
 	if !ok {
-		st = &scopeState{graph: newScopeGraph(metric), dim: len(vec), metric: metric}
+		st = &scopeState{graph: i.newScopeGraph(metric), dim: len(vec), metric: metric}
 		i.scopes[key] = st
 	}
 	if st.tombstones != nil {
@@ -131,7 +154,7 @@ func (i *Index) Insert(entity, scope, id string, vec []float32, metric Metric) e
 	// replacing the sole node, rebuild the graph from scratch instead.
 	if _, ok := st.graph.Lookup(id); ok {
 		if st.graph.Len() == 1 {
-			st.graph = newScopeGraph(st.metric)
+			st.graph = i.newScopeGraph(st.metric)
 		} else {
 			st.graph.Delete(id)
 		}
@@ -298,9 +321,18 @@ func sortScopeInfo(s []ScopeInfo) {
 	}
 }
 
-func newScopeGraph(metric Metric) *hnsw.Graph[string] {
+func (i *Index) newScopeGraph(metric Metric) *hnsw.Graph[string] {
 	g := hnsw.NewGraph[string]()
 	g.Distance = metric.distanceFunc()
+	if i.opts.M > 0 {
+		g.M = i.opts.M
+	}
+	if i.opts.Ml > 0 {
+		g.Ml = i.opts.Ml
+	}
+	if i.opts.EfSearch > 0 {
+		g.EfSearch = i.opts.EfSearch
+	}
 	return g
 }
 
