@@ -2,7 +2,7 @@
 
 Go-native fact database for the [Talon language](https://github.com/opentalon/talon-language). Ships as a Go library for embedding and as a gRPC/HTTP sidecar (`talondb-server`) for sharing one store across multiple processes.
 
-**Status:** Phase 3a. Document store + full index engine + sidecar server + composite Query/SequenceJoin/ClusterQuery/Subscribe RPCs shipped. Mutation engine, script VM, and RETE incremental matcher are next.
+**Status:** Phase 3a. Document store + full index engine + sidecar server + composite Query/SequenceJoin/ClusterQuery/Subscribe RPCs + per-scope HNSW vector index shipped. Mutation engine, script VM, and RETE incremental matcher are next.
 
 ## What this is
 
@@ -24,6 +24,9 @@ talon-db
   │                       Aggregates + GroupBy), SequenceJoin, ClusterQuery
   ├── Streaming        ✅ Subscribe — server-streamed MutationEvents for
   │                       reactive consumers
+  ├── Vector index     ✅ per-(entity, scope) HNSW with dimension locked on
+  │                       first insert; cosine + Euclidean; bbolt-backed
+  │                       persistence + rebuild-on-Open
   ├── Sidecar          ✅ talondb-server: gRPC over Unix socket / TCP, HTTP/JSON
   ├── Mutation engine  ⏳ pre-commit hooks, reactive triggers, transactions (#29)
   ├── Script engine    ⏳ bytecode VM, cache, registry (#30)
@@ -136,9 +139,53 @@ curl -s http://localhost:8080/v1/health
 | Closure | `Ancestors`, `Descendants` |
 | Composite | `Query` (Pattern + Predicate + Or + Not + FullText + Aggregates + GroupBy), `SequenceJoin` (`A` followed_by `B`), `ClusterQuery` (N events within window) |
 | Streaming | `Subscribe` — server-streamed `MutationEvent`s for reactive consumers |
+| Vector index | `VectorInsert`, `VectorSearch`, `VectorDelete`, `VectorDropScope`, `VectorListScopes` — per-(entity, scope) HNSW with cosine or Euclidean distance |
 | Ops | `Health` |
 
 Schema lives in [`proto/talondb.proto`](proto/talondb.proto). Generated Go bindings are committed at [`proto/talondbpb/`](proto/talondbpb/).
+
+## Vector index
+
+Each `(entity, scope)` pair owns its own HNSW graph; the dimension is locked on the first insert into a scope so vectors from different embedding models never collide. Cosine is the default metric; Euclidean is opt-in.
+
+```go
+import (
+    "github.com/opentalon/talon-db/bboltstore"
+    "github.com/opentalon/talon-db/vectorindex"
+)
+
+store, _ := bboltstore.Open("talon.db")
+defer store.Close()
+
+ctx := context.Background()
+_ = store.VectorInsert(ctx, "tenant-a", "embed3", "doc-1",
+    []float32{0.1, 0.2, 0.3}, vectorindex.Cosine)
+_ = store.VectorInsert(ctx, "tenant-a", "embed3", "doc-2",
+    []float32{0.2, 0.1, 0.4}, vectorindex.Cosine)
+
+hits, _ := store.VectorSearch(ctx, "tenant-a", "embed3",
+    []float32{0.1, 0.2, 0.3}, 5)
+for _, h := range hits {
+    fmt.Println(h.ID, h.Distance)
+}
+```
+
+The bbolt layer is authoritative: raw vector blobs live in `vec_data:{entity}:{scope}` and per-scope metadata in `vec_registry:{entity}`. On `Open` the in-memory HNSW is rebuilt by replaying every vector — a SIGKILL between commit and in-memory update can't lose data.
+
+Same surface over the wire via gRPC: `VectorInsert`, `VectorSearch`, `VectorDelete`, `VectorDropScope`, `VectorListScopes`. The wrapper in talon-language [`internal/talondb`](https://github.com/opentalon/talon-language/tree/master/internal/talondb) exposes these to `find similar ... using vector scope "X"` rules.
+
+### Tuning
+
+The defaults (`M=16`, `EfSearch=20`) are tuned for tiny corpora. For SIFT-class workloads, bump them through `vectorindex.NewWithOptions`:
+
+```go
+idx := vectorindex.NewWithOptions(vectorindex.Options{
+    M:        16,   // edges per node, per layer
+    EfSearch: 200,  // beam width for both insert and search
+})
+```
+
+The pipeline hits `recall@10 = 0.998` on SIFT-5K with these settings (see `vectorindex/sift_test.go`). Conformance against the full SIFT-1M corpus is env-gated behind `TALONDB_SIFT_PATH`; `TALONDB_SIFT_BASE_LIMIT` truncates the corpus for laptop-tractable runs.
 
 ## Testing
 
