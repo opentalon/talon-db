@@ -36,6 +36,8 @@ const (
 	TalonDBService_Query_FullMethodName              = "/opentalon.talondb.v1.TalonDBService/Query"
 	TalonDBService_SequenceJoin_FullMethodName       = "/opentalon.talondb.v1.TalonDBService/SequenceJoin"
 	TalonDBService_ClusterQuery_FullMethodName       = "/opentalon.talondb.v1.TalonDBService/ClusterQuery"
+	TalonDBService_VectorInsert_FullMethodName       = "/opentalon.talondb.v1.TalonDBService/VectorInsert"
+	TalonDBService_VectorSearch_FullMethodName       = "/opentalon.talondb.v1.TalonDBService/VectorSearch"
 	TalonDBService_Subscribe_FullMethodName          = "/opentalon.talondb.v1.TalonDBService/Subscribe"
 	TalonDBService_Health_FullMethodName             = "/opentalon.talondb.v1.TalonDBService/Health"
 )
@@ -86,6 +88,14 @@ type TalonDBServiceClient interface {
 	// client-side "fetch all events + count" pattern for "N+ records
 	// within W" detect blocks.
 	ClusterQuery(ctx context.Context, in *ClusterQueryRequest, opts ...grpc.CallOption) (*ClusterQueryResponse, error)
+	// Vector index — per-scope HNSW with dimension locked on first
+	// insert. talon-db hosts one logical index per (entity, scope), so a
+	// single tenant can hold multiple embedding models with different
+	// dimensions side-by-side without cross-contamination. PR 1 ships
+	// Insert + Search; Delete / DropScope / ListScopes land in a
+	// follow-up.
+	VectorInsert(ctx context.Context, in *VectorInsertRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	VectorSearch(ctx context.Context, in *VectorSearchRequest, opts ...grpc.CallOption) (*VectorSearchResponse, error)
 	// Subscribe streams MutationEvents for every committed Put / Delete.
 	// The server-side stream stays open until the client cancels or the
 	// server shuts down. SubscribeRequest filters narrow the stream
@@ -264,6 +274,26 @@ func (c *talonDBServiceClient) ClusterQuery(ctx context.Context, in *ClusterQuer
 	return out, nil
 }
 
+func (c *talonDBServiceClient) VectorInsert(ctx context.Context, in *VectorInsertRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, TalonDBService_VectorInsert_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *talonDBServiceClient) VectorSearch(ctx context.Context, in *VectorSearchRequest, opts ...grpc.CallOption) (*VectorSearchResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VectorSearchResponse)
+	err := c.cc.Invoke(ctx, TalonDBService_VectorSearch_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *talonDBServiceClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[MutationEvent], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &TalonDBService_ServiceDesc.Streams[0], TalonDBService_Subscribe_FullMethodName, cOpts...)
@@ -339,6 +369,14 @@ type TalonDBServiceServer interface {
 	// client-side "fetch all events + count" pattern for "N+ records
 	// within W" detect blocks.
 	ClusterQuery(context.Context, *ClusterQueryRequest) (*ClusterQueryResponse, error)
+	// Vector index — per-scope HNSW with dimension locked on first
+	// insert. talon-db hosts one logical index per (entity, scope), so a
+	// single tenant can hold multiple embedding models with different
+	// dimensions side-by-side without cross-contamination. PR 1 ships
+	// Insert + Search; Delete / DropScope / ListScopes land in a
+	// follow-up.
+	VectorInsert(context.Context, *VectorInsertRequest) (*emptypb.Empty, error)
+	VectorSearch(context.Context, *VectorSearchRequest) (*VectorSearchResponse, error)
 	// Subscribe streams MutationEvents for every committed Put / Delete.
 	// The server-side stream stays open until the client cancels or the
 	// server shuts down. SubscribeRequest filters narrow the stream
@@ -404,6 +442,12 @@ func (UnimplementedTalonDBServiceServer) SequenceJoin(context.Context, *Sequence
 }
 func (UnimplementedTalonDBServiceServer) ClusterQuery(context.Context, *ClusterQueryRequest) (*ClusterQueryResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ClusterQuery not implemented")
+}
+func (UnimplementedTalonDBServiceServer) VectorInsert(context.Context, *VectorInsertRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method VectorInsert not implemented")
+}
+func (UnimplementedTalonDBServiceServer) VectorSearch(context.Context, *VectorSearchRequest) (*VectorSearchResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VectorSearch not implemented")
 }
 func (UnimplementedTalonDBServiceServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[MutationEvent]) error {
 	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
@@ -720,6 +764,42 @@ func _TalonDBService_ClusterQuery_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TalonDBService_VectorInsert_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VectorInsertRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TalonDBServiceServer).VectorInsert(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TalonDBService_VectorInsert_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TalonDBServiceServer).VectorInsert(ctx, req.(*VectorInsertRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TalonDBService_VectorSearch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VectorSearchRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TalonDBServiceServer).VectorSearch(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TalonDBService_VectorSearch_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TalonDBServiceServer).VectorSearch(ctx, req.(*VectorSearchRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _TalonDBService_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SubscribeRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -819,6 +899,14 @@ var TalonDBService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ClusterQuery",
 			Handler:    _TalonDBService_ClusterQuery_Handler,
+		},
+		{
+			MethodName: "VectorInsert",
+			Handler:    _TalonDBService_VectorInsert_Handler,
+		},
+		{
+			MethodName: "VectorSearch",
+			Handler:    _TalonDBService_VectorSearch_Handler,
 		},
 		{
 			MethodName: "Health",

@@ -54,6 +54,15 @@ service TalonDBService {
   // within W" detect blocks.
   rpc ClusterQuery(ClusterQueryRequest) returns (ClusterQueryResponse);
 
+  // Vector index — per-scope HNSW with dimension locked on first
+  // insert. talon-db hosts one logical index per (entity, scope), so a
+  // single tenant can hold multiple embedding models with different
+  // dimensions side-by-side without cross-contamination. PR 1 ships
+  // Insert + Search; Delete / DropScope / ListScopes land in a
+  // follow-up.
+  rpc VectorInsert(VectorInsertRequest) returns (google.protobuf.Empty);
+  rpc VectorSearch(VectorSearchRequest) returns (VectorSearchResponse);
+
   // Subscribe streams MutationEvents for every committed Put / Delete.
   // The server-side stream stays open until the client cancels or the
   // server shuts down. SubscribeRequest filters narrow the stream
@@ -331,4 +340,40 @@ message TemporalCluster {
   int64  first_unix_nanos       = 1;
   int64  last_unix_nanos        = 2;
   repeated TemporalEvent events = 3;
+}
+
+// ---------- VectorIndex ----------
+
+// VectorMetric mirrors the vectorindex.Metric enum. UNSPECIFIED defaults
+// server-side to COSINE (matches most embedding models). The metric
+// argument is honoured only on the first insert into a scope; later
+// inserts keep the scope's original metric and ignore the field.
+enum VectorMetric {
+  VECTOR_METRIC_UNSPECIFIED = 0;
+  VECTOR_METRIC_COSINE      = 1;
+  VECTOR_METRIC_EUCLIDEAN   = 2;
+}
+
+message VectorInsertRequest {
+  string         entity_id = 1;
+  string         scope     = 2;  // identifies the embedding model / dimension
+  string         id        = 3;
+  repeated float vector    = 4;  // length sets dimension on first insert into scope
+  VectorMetric   metric    = 5;  // honoured only on first insert into scope
+}
+
+message VectorSearchRequest {
+  string         entity_id = 1;
+  string         scope     = 2;
+  repeated float vector    = 3;  // length must match the scope's locked dimension
+  int32          k         = 4;
+}
+
+message VectorSearchResponse {
+  repeated VectorHit hits = 1;  // ordered nearest-first
+}
+
+message VectorHit {
+  string id       = 1;
+  float  distance = 2;  // metric-dependent: lower = closer
 }
