@@ -38,6 +38,9 @@ const (
 	TalonDBService_ClusterQuery_FullMethodName       = "/opentalon.talondb.v1.TalonDBService/ClusterQuery"
 	TalonDBService_VectorInsert_FullMethodName       = "/opentalon.talondb.v1.TalonDBService/VectorInsert"
 	TalonDBService_VectorSearch_FullMethodName       = "/opentalon.talondb.v1.TalonDBService/VectorSearch"
+	TalonDBService_VectorDelete_FullMethodName       = "/opentalon.talondb.v1.TalonDBService/VectorDelete"
+	TalonDBService_VectorDropScope_FullMethodName    = "/opentalon.talondb.v1.TalonDBService/VectorDropScope"
+	TalonDBService_VectorListScopes_FullMethodName   = "/opentalon.talondb.v1.TalonDBService/VectorListScopes"
 	TalonDBService_Subscribe_FullMethodName          = "/opentalon.talondb.v1.TalonDBService/Subscribe"
 	TalonDBService_Health_FullMethodName             = "/opentalon.talondb.v1.TalonDBService/Health"
 )
@@ -91,11 +94,12 @@ type TalonDBServiceClient interface {
 	// Vector index — per-scope HNSW with dimension locked on first
 	// insert. talon-db hosts one logical index per (entity, scope), so a
 	// single tenant can hold multiple embedding models with different
-	// dimensions side-by-side without cross-contamination. PR 1 ships
-	// Insert + Search; Delete / DropScope / ListScopes land in a
-	// follow-up.
+	// dimensions side-by-side without cross-contamination.
 	VectorInsert(ctx context.Context, in *VectorInsertRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	VectorSearch(ctx context.Context, in *VectorSearchRequest, opts ...grpc.CallOption) (*VectorSearchResponse, error)
+	VectorDelete(ctx context.Context, in *VectorDeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	VectorDropScope(ctx context.Context, in *VectorDropScopeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	VectorListScopes(ctx context.Context, in *VectorListScopesRequest, opts ...grpc.CallOption) (*VectorListScopesResponse, error)
 	// Subscribe streams MutationEvents for every committed Put / Delete.
 	// The server-side stream stays open until the client cancels or the
 	// server shuts down. SubscribeRequest filters narrow the stream
@@ -294,6 +298,36 @@ func (c *talonDBServiceClient) VectorSearch(ctx context.Context, in *VectorSearc
 	return out, nil
 }
 
+func (c *talonDBServiceClient) VectorDelete(ctx context.Context, in *VectorDeleteRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, TalonDBService_VectorDelete_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *talonDBServiceClient) VectorDropScope(ctx context.Context, in *VectorDropScopeRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, TalonDBService_VectorDropScope_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *talonDBServiceClient) VectorListScopes(ctx context.Context, in *VectorListScopesRequest, opts ...grpc.CallOption) (*VectorListScopesResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VectorListScopesResponse)
+	err := c.cc.Invoke(ctx, TalonDBService_VectorListScopes_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *talonDBServiceClient) Subscribe(ctx context.Context, in *SubscribeRequest, opts ...grpc.CallOption) (grpc.ServerStreamingClient[MutationEvent], error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	stream, err := c.cc.NewStream(ctx, &TalonDBService_ServiceDesc.Streams[0], TalonDBService_Subscribe_FullMethodName, cOpts...)
@@ -372,11 +406,12 @@ type TalonDBServiceServer interface {
 	// Vector index — per-scope HNSW with dimension locked on first
 	// insert. talon-db hosts one logical index per (entity, scope), so a
 	// single tenant can hold multiple embedding models with different
-	// dimensions side-by-side without cross-contamination. PR 1 ships
-	// Insert + Search; Delete / DropScope / ListScopes land in a
-	// follow-up.
+	// dimensions side-by-side without cross-contamination.
 	VectorInsert(context.Context, *VectorInsertRequest) (*emptypb.Empty, error)
 	VectorSearch(context.Context, *VectorSearchRequest) (*VectorSearchResponse, error)
+	VectorDelete(context.Context, *VectorDeleteRequest) (*emptypb.Empty, error)
+	VectorDropScope(context.Context, *VectorDropScopeRequest) (*emptypb.Empty, error)
+	VectorListScopes(context.Context, *VectorListScopesRequest) (*VectorListScopesResponse, error)
 	// Subscribe streams MutationEvents for every committed Put / Delete.
 	// The server-side stream stays open until the client cancels or the
 	// server shuts down. SubscribeRequest filters narrow the stream
@@ -448,6 +483,15 @@ func (UnimplementedTalonDBServiceServer) VectorInsert(context.Context, *VectorIn
 }
 func (UnimplementedTalonDBServiceServer) VectorSearch(context.Context, *VectorSearchRequest) (*VectorSearchResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method VectorSearch not implemented")
+}
+func (UnimplementedTalonDBServiceServer) VectorDelete(context.Context, *VectorDeleteRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method VectorDelete not implemented")
+}
+func (UnimplementedTalonDBServiceServer) VectorDropScope(context.Context, *VectorDropScopeRequest) (*emptypb.Empty, error) {
+	return nil, status.Error(codes.Unimplemented, "method VectorDropScope not implemented")
+}
+func (UnimplementedTalonDBServiceServer) VectorListScopes(context.Context, *VectorListScopesRequest) (*VectorListScopesResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VectorListScopes not implemented")
 }
 func (UnimplementedTalonDBServiceServer) Subscribe(*SubscribeRequest, grpc.ServerStreamingServer[MutationEvent]) error {
 	return status.Error(codes.Unimplemented, "method Subscribe not implemented")
@@ -800,6 +844,60 @@ func _TalonDBService_VectorSearch_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TalonDBService_VectorDelete_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VectorDeleteRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TalonDBServiceServer).VectorDelete(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TalonDBService_VectorDelete_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TalonDBServiceServer).VectorDelete(ctx, req.(*VectorDeleteRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TalonDBService_VectorDropScope_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VectorDropScopeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TalonDBServiceServer).VectorDropScope(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TalonDBService_VectorDropScope_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TalonDBServiceServer).VectorDropScope(ctx, req.(*VectorDropScopeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _TalonDBService_VectorListScopes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VectorListScopesRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TalonDBServiceServer).VectorListScopes(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TalonDBService_VectorListScopes_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TalonDBServiceServer).VectorListScopes(ctx, req.(*VectorListScopesRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _TalonDBService_Subscribe_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SubscribeRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -907,6 +1005,18 @@ var TalonDBService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "VectorSearch",
 			Handler:    _TalonDBService_VectorSearch_Handler,
+		},
+		{
+			MethodName: "VectorDelete",
+			Handler:    _TalonDBService_VectorDelete_Handler,
+		},
+		{
+			MethodName: "VectorDropScope",
+			Handler:    _TalonDBService_VectorDropScope_Handler,
+		},
+		{
+			MethodName: "VectorListScopes",
+			Handler:    _TalonDBService_VectorListScopes_Handler,
 		},
 		{
 			MethodName: "Health",

@@ -78,6 +78,13 @@ type scopeState struct {
 	graph  *hnsw.Graph[string]
 	dim    int
 	metric Metric
+
+	// Tombstones for deleted ids. coder/hnsw v0.6.1's own Delete
+	// leaves the graph in a state where Search SEGVs on the remaining
+	// nodes, so we don't touch the upstream graph on Delete; Search
+	// post-filters tombstoned ids and returns the next neighbour
+	// instead. Re-inserting a tombstoned id clears its entry.
+	tombstones map[string]bool
 }
 
 // New returns an empty Index.
@@ -107,7 +114,12 @@ func (i *Index) Insert(entity, scope, id string, vec []float32, metric Metric) e
 	if !ok {
 		st = &scopeState{graph: newScopeGraph(metric), dim: len(vec), metric: metric}
 		i.scopes[key] = st
-	} else if len(vec) != st.dim {
+	}
+	if st.tombstones != nil {
+		// Re-inserting a previously tombstoned id un-buries it.
+		delete(st.tombstones, id)
+	}
+	if ok && len(vec) != st.dim {
 		return fmt.Errorf("%w: scope %q/%q expects dim %d, got %d",
 			ErrDimensionMismatch, entity, scope, st.dim, len(vec))
 	}
@@ -135,6 +147,9 @@ func (i *Index) Insert(entity, scope, id string, vec []float32, metric Metric) e
 //
 // k is clamped to the scope's current cardinality — a Search with k
 // larger than the population returns every neighbour without error.
+// Tombstoned ids (those passed through Delete) are filtered out
+// transparently; Search may over-fetch from the underlying graph to
+// keep the response size at k after tombstone removal.
 func (i *Index) Search(entity, scope string, query []float32, k int) ([]Result, error) {
 	if len(query) == 0 {
 		return nil, ErrEmptyVector
@@ -153,16 +168,99 @@ func (i *Index) Search(entity, scope string, query []float32, k int) ([]Result, 
 		return nil, fmt.Errorf("%w: scope %q/%q expects dim %d, got %d",
 			ErrDimensionMismatch, entity, scope, st.dim, len(query))
 	}
-	// v0.6.1 only exposes Search → []Node, no per-result distance. We
-	// recompute distance against the query using the scope's configured
-	// metric so callers see a real score in the response.
-	hits := st.graph.Search(query, k)
+	// Over-fetch by the number of tombstones so the post-filter still
+	// has room to fill k.
+	fetchK := k + len(st.tombstones)
+	hits := st.graph.Search(query, fetchK)
 	distFn := st.metric.distanceFunc()
-	out := make([]Result, 0, len(hits))
+	out := make([]Result, 0, k)
 	for _, n := range hits {
+		if st.tombstones[n.Key] {
+			continue
+		}
 		out = append(out, Result{ID: n.Key, Distance: distFn(query, n.Value)})
+		if len(out) == k {
+			break
+		}
 	}
 	return out, nil
+}
+
+// Delete tombstones the vector at (entity, scope, id). The upstream
+// hnsw graph is left intact because v0.6.1's own Delete leaves the
+// graph in a state where subsequent Search calls SEGV on isolated
+// nodes. The tombstone is honoured at Search time. DropScope and the
+// rebuild path purge tombstones by discarding the graph entirely.
+//
+// Returns true when the id existed (and wasn't already tombstoned).
+func (i *Index) Delete(entity, scope, id string) bool {
+	if entity == "" || scope == "" || id == "" {
+		return false
+	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	st, ok := i.scopes[scopeKey{entity, scope}]
+	if !ok {
+		return false
+	}
+	if _, present := st.graph.Lookup(id); !present {
+		return false
+	}
+	if st.tombstones != nil && st.tombstones[id] {
+		return false
+	}
+	if st.tombstones == nil {
+		st.tombstones = map[string]bool{}
+	}
+	st.tombstones[id] = true
+	return true
+}
+
+// DropScope removes everything under (entity, scope) — both the
+// in-memory graph and the dimension lock. After DropScope the next
+// Insert into the same (entity, scope) starts fresh and may use a
+// different dimension. Returns true when the scope existed.
+func (i *Index) DropScope(entity, scope string) bool {
+	if entity == "" || scope == "" {
+		return false
+	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
+	key := scopeKey{entity, scope}
+	if _, ok := i.scopes[key]; !ok {
+		return false
+	}
+	delete(i.scopes, key)
+	return true
+}
+
+// ScopeInfo describes one scope's metadata.
+type ScopeInfo struct {
+	Scope  string
+	Dim    int
+	Count  int
+	Metric Metric
+}
+
+// ListScopes returns every scope under entity, sorted by name. Returns
+// an empty slice when the tenant has never written a vector.
+func (i *Index) ListScopes(entity string) []ScopeInfo {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	out := make([]ScopeInfo, 0)
+	for k, st := range i.scopes {
+		if k.entity != entity {
+			continue
+		}
+		out = append(out, ScopeInfo{
+			Scope:  k.scope,
+			Dim:    st.dim,
+			Count:  st.graph.Len() - len(st.tombstones),
+			Metric: st.metric,
+		})
+	}
+	sortScopeInfo(out)
+	return out
 }
 
 // Dim returns the locked dimension for (entity, scope). Reports 0 +
@@ -177,8 +275,8 @@ func (i *Index) Dim(entity, scope string) (int, bool) {
 	return st.dim, true
 }
 
-// Len returns the number of vectors stored under (entity, scope). 0
-// when the scope is unknown.
+// Len returns the number of live (non-tombstoned) vectors stored under
+// (entity, scope). 0 when the scope is unknown.
 func (i *Index) Len(entity, scope string) int {
 	i.mu.RLock()
 	defer i.mu.RUnlock()
@@ -186,7 +284,18 @@ func (i *Index) Len(entity, scope string) int {
 	if !ok {
 		return 0
 	}
-	return st.graph.Len()
+	return st.graph.Len() - len(st.tombstones)
+}
+
+// sortScopeInfo sorts in place by Scope name. Inlined rather than
+// reaching for sort.Slice + a closure because the slice is tiny in
+// practice (one tenant rarely has more than a few scopes).
+func sortScopeInfo(s []ScopeInfo) {
+	for i := 1; i < len(s); i++ {
+		for j := i; j > 0 && s[j-1].Scope > s[j].Scope; j-- {
+			s[j-1], s[j] = s[j], s[j-1]
+		}
+	}
 }
 
 func newScopeGraph(metric Metric) *hnsw.Graph[string] {

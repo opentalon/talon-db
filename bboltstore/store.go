@@ -10,9 +10,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	talondb "github.com/opentalon/talon-db"
+	"github.com/opentalon/talon-db/vectorindex"
 
 	"github.com/golang/snappy"
 	bolt "go.etcd.io/bbolt"
@@ -28,6 +30,13 @@ type Store struct {
 	db     *bolt.DB
 	now    func() time.Time
 	events talondb.EventEmitter
+
+	// Vector index — lazily rebuilt from the vec_registry / vec_data
+	// buckets on first access. vecOnce gates the rebuild; vecLoadErr
+	// is sticky so callers see the failure on every subsequent call.
+	vecOnce    sync.Once
+	vectors    *vectorindex.Index
+	vecLoadErr error
 }
 
 // Open opens (or creates) a bbolt database at path and returns a Store.
