@@ -266,6 +266,93 @@ func TestRecallSanityOnSyntheticClusters(t *testing.T) {
 	}
 }
 
+func TestDeleteRemovesVector(t *testing.T) {
+	t.Parallel()
+	idx := vectorindex.New()
+	_ = idx.Insert("t", "s", "a", []float32{1, 0, 0}, vectorindex.Cosine)
+	_ = idx.Insert("t", "s", "b", []float32{0, 1, 0}, vectorindex.Cosine)
+	_ = idx.Insert("t", "s", "c", []float32{0, 0, 1}, vectorindex.Cosine)
+
+	if !idx.Delete("t", "s", "b") {
+		t.Fatal("Delete should return true for an existing id")
+	}
+	if got := idx.Len("t", "s"); got != 2 {
+		t.Errorf("Len after Delete = %d, want 2", got)
+	}
+	if idx.Delete("t", "s", "missing") {
+		t.Error("Delete should return false for an unknown id")
+	}
+	if idx.Delete("t", "nope", "a") {
+		t.Error("Delete should return false for an unknown scope")
+	}
+}
+
+func TestDeleteSoleVectorThenReinsert(t *testing.T) {
+	// Workaround path: deleting the only vector rebuilds the graph
+	// from scratch; the next Insert must succeed without panicking.
+	t.Parallel()
+	idx := vectorindex.New()
+	_ = idx.Insert("t", "s", "only", []float32{1, 0, 0}, vectorindex.Cosine)
+	if !idx.Delete("t", "s", "only") {
+		t.Fatal("Delete returned false")
+	}
+	if got := idx.Len("t", "s"); got != 0 {
+		t.Errorf("Len after sole-delete = %d, want 0", got)
+	}
+	if err := idx.Insert("t", "s", "new", []float32{0, 1, 0}, vectorindex.Cosine); err != nil {
+		t.Fatalf("reinsert: %v", err)
+	}
+	if got := idx.Len("t", "s"); got != 1 {
+		t.Errorf("Len after reinsert = %d, want 1", got)
+	}
+}
+
+func TestDropScopeClearsDimensionLock(t *testing.T) {
+	t.Parallel()
+	idx := vectorindex.New()
+	_ = idx.Insert("t", "s", "a", []float32{1, 0, 0}, vectorindex.Cosine)
+
+	if !idx.DropScope("t", "s") {
+		t.Fatal("DropScope returned false")
+	}
+	if _, ok := idx.Dim("t", "s"); ok {
+		t.Error("scope should be gone after DropScope")
+	}
+	// Old dim (3) is forgotten — new Insert of dim 5 must succeed.
+	if err := idx.Insert("t", "s", "new", make([]float32, 5), vectorindex.Cosine); err != nil {
+		t.Fatalf("reinsert with new dim: %v", err)
+	}
+	if d, _ := idx.Dim("t", "s"); d != 5 {
+		t.Errorf("new dim = %d, want 5", d)
+	}
+}
+
+func TestListScopesSortedAndPerTenant(t *testing.T) {
+	t.Parallel()
+	idx := vectorindex.New()
+	_ = idx.Insert("t", "zebra", "z", []float32{1, 0}, vectorindex.Cosine)
+	_ = idx.Insert("t", "apple", "a", []float32{1, 0, 0}, vectorindex.Euclidean)
+	_ = idx.Insert("t", "apple", "b", []float32{0, 1, 0}, vectorindex.Euclidean)
+	_ = idx.Insert("other", "ghost", "g", []float32{1}, vectorindex.Cosine)
+
+	got := idx.ListScopes("t")
+	if len(got) != 2 {
+		t.Fatalf("got %d scopes, want 2", len(got))
+	}
+	if got[0].Scope != "apple" || got[0].Dim != 3 || got[0].Count != 2 || got[0].Metric != vectorindex.Euclidean {
+		t.Errorf("got[0] = %+v", got[0])
+	}
+	if got[1].Scope != "zebra" || got[1].Dim != 2 || got[1].Count != 1 {
+		t.Errorf("got[1] = %+v", got[1])
+	}
+	if other := idx.ListScopes("other"); len(other) != 1 || other[0].Scope != "ghost" {
+		t.Errorf("ListScopes(other) = %v", other)
+	}
+	if empty := idx.ListScopes("nobody"); len(empty) != 0 {
+		t.Errorf("ListScopes(nobody) = %v", empty)
+	}
+}
+
 func jitter(rng *rand.Rand, centre []float32, dim int, scale float32) []float32 {
 	out := make([]float32, dim)
 	for i := range out {

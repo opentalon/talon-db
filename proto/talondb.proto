@@ -57,11 +57,12 @@ service TalonDBService {
   // Vector index — per-scope HNSW with dimension locked on first
   // insert. talon-db hosts one logical index per (entity, scope), so a
   // single tenant can hold multiple embedding models with different
-  // dimensions side-by-side without cross-contamination. PR 1 ships
-  // Insert + Search; Delete / DropScope / ListScopes land in a
-  // follow-up.
+  // dimensions side-by-side without cross-contamination.
   rpc VectorInsert(VectorInsertRequest) returns (google.protobuf.Empty);
   rpc VectorSearch(VectorSearchRequest) returns (VectorSearchResponse);
+  rpc VectorDelete(VectorDeleteRequest) returns (google.protobuf.Empty);
+  rpc VectorDropScope(VectorDropScopeRequest) returns (google.protobuf.Empty);
+  rpc VectorListScopes(VectorListScopesRequest) returns (VectorListScopesResponse);
 
   // Subscribe streams MutationEvents for every committed Put / Delete.
   // The server-side stream stays open until the client cancels or the
@@ -376,4 +377,30 @@ message VectorSearchResponse {
 message VectorHit {
   string id       = 1;
   float  distance = 2;  // metric-dependent: lower = closer
+}
+
+message VectorDeleteRequest {
+  string entity_id = 1;
+  string scope     = 2;
+  string id        = 3;
+}
+
+message VectorDropScopeRequest {
+  string entity_id = 1;
+  string scope     = 2;
+}
+
+message VectorListScopesRequest {
+  string entity_id = 1;
+}
+
+message VectorListScopesResponse {
+  repeated VectorScope scopes = 1;  // sorted by scope name
+}
+
+message VectorScope {
+  string       scope  = 1;
+  int32        dim    = 2;  // locked on first insert
+  int32        count  = 3;  // live (non-tombstoned) vector count
+  VectorMetric metric = 4;
 }
