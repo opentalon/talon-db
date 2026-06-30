@@ -38,16 +38,25 @@ import (
 // query count so the test runs in ~minutes (full 10k queries take an
 // order of magnitude longer); set TALONDB_SIFT_QUERIES to override.
 //
+// On laptop-class hardware the per-insert cost (HNSW + bbolt commit
+// in lockstep) makes the full 1M insert phase ~hours; the recall
+// pipeline itself is fast. Set TALONDB_SIFT_BASE_LIMIT to a smaller
+// integer to cap the base corpus — recall measurement is then only
+// meaningful relative to that truncated subset (groundtruth ids
+// outside the subset are dropped from the per-query top-K before
+// scoring, so the metric stays well-defined).
+//
 // .fvecs / .ivecs format (TEXMEX): a sequence of <int32 dim><dim ×
 // {float32|int32}> records, little-endian.
 
 const (
-	siftPathEnv    = "TALONDB_SIFT_PATH"
-	siftQueriesEnv = "TALONDB_SIFT_QUERIES"
-	siftDim        = 128
-	siftDefaultK   = 10
-	siftDefaultQ   = 100
-	siftRecallMin  = 0.9
+	siftPathEnv      = "TALONDB_SIFT_PATH"
+	siftQueriesEnv   = "TALONDB_SIFT_QUERIES"
+	siftBaseLimitEnv = "TALONDB_SIFT_BASE_LIMIT"
+	siftDim          = 128
+	siftDefaultK     = 10
+	siftDefaultQ     = 100
+	siftRecallMin    = 0.9
 )
 
 func TestSIFTRecall(t *testing.T) {
