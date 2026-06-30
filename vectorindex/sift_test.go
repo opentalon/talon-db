@@ -55,22 +55,19 @@ const (
 	siftDim           = 128
 	siftDefaultK      = 10
 	siftDefaultQ      = 100
-	siftDefaultRecall = 0.25 // see comment in TestSIFTRecall
+	siftDefaultRecall = 0.9 // production target from opentalon/talon-db#12
 )
 
 // Recall threshold for the SIFT test.
 //
-// The original talon-db#12 acceptance criterion is `recall@10 ≥ 0.9`.
-// On the SIFT-1M corpus, coder/hnsw v0.6.1 (the upstream we wrap)
-// caps around `recall@10 ≈ 0.30` regardless of M / EfSearch / corpus
-// size — the library has known correctness bugs (see upstream issues
-// #15, #22). The threshold here is set to `0.25` so the smoke
-// pipeline (load → insert → search → score) keeps verifying the
-// integration end-to-end while the underlying graph quality matures.
+// The talon-db#12 acceptance criterion is `recall@10 ≥ 0.9`. We hit
+// it by pinning coder/hnsw to a post-2026-06-22 main commit; v0.6.1
+// shipped without three recall-relevant fixes (efSearch-bounded
+// termination, replenish() honouring the configured metric, heap
+// ordering) and capped around `recall@10 ≈ 0.30` on SIFT.
 //
-// Override via TALONDB_SIFT_RECALL_MIN once the library improves (or
-// once we switch to a higher-quality HNSW implementation) to enforce
-// the production target.
+// Override via TALONDB_SIFT_RECALL_MIN to relax the bar during
+// experiments with alternative HNSW backends.
 
 func TestSIFTRecall(t *testing.T) {
 	dir := os.Getenv(siftPathEnv)
@@ -117,9 +114,13 @@ func TestSIFTRecall(t *testing.T) {
 	// pipeline talks to the in-memory index directly. We bump
 	// EfSearch + M from coder/hnsw v0.6.1's tiny defaults — the
 	// shipped values target tens-of-vectors workloads, not SIFT.
+	// M=16 / EfSearch=200 hits the talon-db#12 0.9 recall target on
+	// SIFT-5K with the post-2026-06-22 coder/hnsw main pin, and stays
+	// fast enough that the test runs in tens of seconds rather than
+	// minutes on laptop-class hardware.
 	idx := vectorindex.NewWithOptions(vectorindex.Options{
-		M:        64,
-		EfSearch: 800,
+		M:        16,
+		EfSearch: 200,
 	})
 	// SIFT descriptors are unsigned 8-bit features cast to float32.
 	// They are traditionally compared with L2 / Euclidean, not cosine
