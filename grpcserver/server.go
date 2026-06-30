@@ -13,6 +13,7 @@ import (
 
 	talondb "github.com/opentalon/talon-db"
 	"github.com/opentalon/talon-db/proto/talondbpb"
+	"github.com/opentalon/talon-db/vectorindex"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -26,14 +27,23 @@ type Server struct {
 	talondbpb.UnimplementedTalonDBServiceServer
 	store   talondb.IndexedStore
 	events  *talondb.EventEmitter
+	vectors *vectorindex.Index
 	version string
 }
 
 // New constructs a Server over the given store. version is reported
 // by the Health RPC. events, when non-nil, enables the Subscribe RPC;
-// pass store.Events() if the backend supports it.
+// pass store.Events() if the backend supports it. A fresh in-memory
+// vector index is created automatically — PR 1 keeps vectors in
+// memory only; PR 2 will wire bbolt-backed persistence + rebuild on
+// Open.
 func New(store talondb.IndexedStore, events *talondb.EventEmitter, version string) *Server {
-	return &Server{store: store, events: events, version: version}
+	return &Server{
+		store:   store,
+		events:  events,
+		vectors: vectorindex.New(),
+		version: version,
+	}
 }
 
 // ---------- DocumentStore ----------
