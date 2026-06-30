@@ -2,7 +2,7 @@
 
 Go-native fact database for the [Talon language](https://github.com/opentalon/talon-language). Ships as a Go library for embedding and as a gRPC/HTTP sidecar (`talondb-server`) for sharing one store across multiple processes.
 
-**Status:** Phase 3a. Document store + full index engine + sidecar server shipped. Mutation engine, script VM, and RETE incremental matcher are next.
+**Status:** Phase 3a. Document store + full index engine + sidecar server + composite Query/SequenceJoin/ClusterQuery/Subscribe RPCs shipped. Mutation engine, script VM, and RETE incremental matcher are next.
 
 ## What this is
 
@@ -20,6 +20,10 @@ talon-db
   ├── Public API       ✅ talondb.IndexedStore (Lookup, LookupPrefix,
   │                       LookupNumericRange, WindowQuery, GroupCount, Stats,
   │                       LastSeen, Ancestors, Descendants)
+  ├── Composite RPCs   ✅ structured Query (Pattern/Predicate/Or/Not/FullText +
+  │                       Aggregates + GroupBy), SequenceJoin, ClusterQuery
+  ├── Streaming        ✅ Subscribe — server-streamed MutationEvents for
+  │                       reactive consumers
   ├── Sidecar          ✅ talondb-server: gRPC over Unix socket / TCP, HTTP/JSON
   ├── Mutation engine  ⏳ pre-commit hooks, reactive triggers, transactions (#29)
   ├── Script engine    ⏳ bytecode VM, cache, registry (#30)
@@ -130,6 +134,8 @@ curl -s http://localhost:8080/v1/health
 | Statistics | `Stats` (Welford count / mean / m2 / min / max) |
 | Absence | `LastSeen` |
 | Closure | `Ancestors`, `Descendants` |
+| Composite | `Query` (Pattern + Predicate + Or + Not + FullText + Aggregates + GroupBy), `SequenceJoin` (`A` followed_by `B`), `ClusterQuery` (N events within window) |
+| Streaming | `Subscribe` — server-streamed `MutationEvent`s for reactive consumers |
 | Ops | `Health` |
 
 Schema lives in [`proto/talondb.proto`](proto/talondb.proto). Generated Go bindings are committed at [`proto/talondbpb/`](proto/talondbpb/).
